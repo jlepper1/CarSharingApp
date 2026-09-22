@@ -1,4 +1,9 @@
-import { createClient, type PostgrestError, type SupabaseClient } from '@supabase/supabase-js'
+import {
+  createClient,
+  type AuthError,
+  type PostgrestError,
+  type SupabaseClient,
+} from '@supabase/supabase-js'
 import type {
   AuthUser,
   DataProvider,
@@ -67,6 +72,41 @@ function toFailure(error: PostgrestError): { ok: false; reason: never | 'conflic
     default:
       return { ok: false, reason: 'unknown', message: error.message }
   }
+}
+
+/**
+ * Say why a sign-in actually failed.
+ *
+ * Collapsing every failure into "wrong password" hides the common real causes -
+ * an account that was never confirmed, or email logins switched off in the
+ * Supabase project - and sends people hunting for a typo that is not there.
+ */
+function signInMessage(error: AuthError | null): string {
+  if (!error) return 'Anmeldung fehlgeschlagen. Bitte noch einmal versuchen.'
+
+  switch (error.code) {
+    case 'invalid_credentials':
+      return 'E-Mail oder Passwort stimmt nicht.'
+    case 'email_not_confirmed':
+      return 'Dieser Zugang ist noch nicht bestätigt. Im Supabase-Dashboard unter Authentication → Users den Benutzer bestätigen (Confirm email).'
+    case 'email_provider_disabled':
+      return 'Anmeldung per E-Mail ist im Supabase-Projekt deaktiviert. Unter Authentication → Sign In / Providers → Email einschalten.'
+    case 'user_not_found':
+      return 'Für diese E-Mail gibt es keinen Zugang. Er wird im Supabase-Dashboard angelegt.'
+    case 'user_banned':
+      return 'Dieser Zugang ist gesperrt.'
+    case 'over_request_rate_limit':
+      return 'Zu viele Versuche. Bitte ein paar Minuten warten.'
+    default:
+      break
+  }
+
+  // No code at all usually means the request never reached Supabase: wrong URL
+  // in .env.local, or no connection.
+  if (!error.status) {
+    return `Keine Verbindung zu Supabase. Bitte VITE_SUPABASE_URL in .env.local prüfen. (${error.message})`
+  }
+  return `Anmeldung fehlgeschlagen: ${error.message}`
 }
 
 type Row = Record<string, unknown>
@@ -201,11 +241,7 @@ export class SupabaseProvider implements DataProvider {
   async signIn(email: string, password: string): Promise<SaveResult<AuthUser>> {
     const { data, error } = await this.client.auth.signInWithPassword({ email, password })
     if (error || !data.user) {
-      return {
-        ok: false,
-        reason: 'auth',
-        message: 'Anmeldung fehlgeschlagen. E-Mail oder Passwort stimmt nicht.',
-      }
+      return { ok: false, reason: 'auth', message: signInMessage(error) }
     }
     return { ok: true, value: { id: data.user.id, email: data.user.email ?? '' } }
   }
