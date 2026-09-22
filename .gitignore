@@ -26,3 +26,6 @@ dist-ssr
 # local environment
 .env.local
 .env
+
+# editor and tooling backups
+*.bak
