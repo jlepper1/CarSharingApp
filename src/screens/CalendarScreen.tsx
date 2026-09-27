@@ -13,8 +13,8 @@ import { useApp, useProfileLookup } from '../context/AppContext'
 import type { Booking } from '../data/types'
 import {
   addDays,
+  daySegment,
   formatDay,
-  formatTime,
   overlapsDay,
   startOfWeek,
   toDateTimeLocal,
@@ -144,8 +144,7 @@ export default function CalendarScreen() {
                               {person?.displayName ?? 'Unbekannt'} · {car?.name ?? 'Auto'}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {formatTime(new Date(booking.startsAt))} –{' '}
-                              {formatTime(new Date(booking.endsAt))}
+                              {daySegment(booking.startsAt, booking.endsAt, day).label}
                               {booking.purpose ? ` · ${booking.purpose}` : ''}
                             </div>
                           </div>

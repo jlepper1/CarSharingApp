@@ -90,3 +90,38 @@ export function overlapsDay(startsAt: string, endsAt: string, day: Date): boolea
   const dayEnd = addDays(dayStart, 1)
   return new Date(startsAt) < dayEnd && new Date(endsAt) > dayStart
 }
+
+export interface DaySegment {
+  /** The booking was already running before this day began. */
+  startsEarlier: boolean
+  /** The booking carries on past the end of this day. */
+  endsLater: boolean
+  /** For example `09:00 – 24:00`, `00:00 – 24:00`, `00:00 – 17:00`. */
+  label: string
+}
+
+/**
+ * The part of a booking that falls on one particular day.
+ *
+ * A reservation from Monday 09:00 until Wednesday 17:00 occupies Monday from
+ * 09:00 to midnight, the whole of Tuesday, and Wednesday until 17:00. It does
+ * not begin again at 09:00 each morning, which is what showing the booking's
+ * absolute start and end on every day would imply.
+ */
+export function daySegment(startsAt: string, endsAt: string, day: Date): DaySegment {
+  const dayStart = new Date(day)
+  dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = addDays(dayStart, 1)
+
+  const start = new Date(startsAt)
+  const end = new Date(endsAt)
+
+  const startsEarlier = start < dayStart
+  const endsLater = end > dayEnd
+
+  const from = startsEarlier ? '00:00' : formatTime(start)
+  // Midnight closing this day reads as 24:00, not as 00:00 of the next one.
+  const to = endsLater || end.getTime() === dayEnd.getTime() ? '24:00' : formatTime(end)
+
+  return { startsEarlier, endsLater, label: `${from} – ${to}` }
+}
