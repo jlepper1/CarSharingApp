@@ -85,14 +85,8 @@ export default function CalendarScreen() {
     [lookup],
   )
 
-  async function handleDelete(booking: Booking) {
-    const label = booking.reference > 0 ? `Reservierung #${booking.reference}` : "Diese Reservierung"
-    if (!confirm(`${label} wirklich löschen?`)) return
-    const result = await provider.deleteBooking(booking.id)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
+  /** The detail sheet saves and deletes itself; we only refresh afterwards. */
+  function handleBookingChanged() {
     setDetail(null)
     void load()
   }
@@ -159,8 +153,7 @@ export default function CalendarScreen() {
       {detail ? (
         <BookingDetail
           booking={detail}
-          error={null}
-          onDelete={(b) => void handleDelete(b)}
+          onChanged={handleBookingChanged}
           onClose={() => setDetail(null)}
         />
       ) : null}
