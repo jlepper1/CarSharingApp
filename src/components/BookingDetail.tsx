@@ -80,17 +80,37 @@ export default function BookingDetail({
     else setError(result.message)
   }
 
+  /**
+   * Only a tap on the backdrop itself closes the form.
+   *
+   * Relying on the dialog to stop the click from bubbling is not enough: a
+   * native date or select picker removes the element under the finger as it
+   * closes, so the click arrives at the backdrop from a node that is no longer
+   * inside the dialog. On a phone that made every attempt to change a field
+   * shut the form instead.
+   */
+  function handleBackdropClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return
+    // Never throw away something that has been typed but not saved.
+    if (isMine && changed) return
+    onClose()
+  }
+
+  function handleCloseButton() {
+    if (isMine && changed && !confirm('Änderungen verwerfen?')) return
+    onClose()
+  }
+
   return (
     <div
       className="fixed inset-0 z-30 flex items-end justify-center overflow-y-auto bg-slate-900/40 sm:items-center"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         role="dialog"
         aria-label={
           booking.reference > 0 ? `Reservierung Nummer ${booking.reference}` : 'Reservierung'
         }
-        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-t-2xl bg-white p-5 safe-bottom sm:rounded-2xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -105,7 +125,8 @@ export default function BookingDetail({
             </h2>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleCloseButton}
             aria-label="Schließen"
             className="-mr-1 -mt-1 px-2 py-1 text-slate-400"
           >

@@ -37,7 +37,9 @@ export default defineConfig({
     host: true,
   },
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
+    // jsdom so component behaviour can be tested, not only pure functions.
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./src/test-setup.ts'],
   },
 })
