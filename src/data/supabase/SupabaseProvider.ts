@@ -133,6 +133,9 @@ function toCar(row: Row): Car {
 function toBooking(row: Row): Booking {
   return {
     id: row.id as string,
+    // 0 until migration 0002 has been run; the UI then simply shows no number
+    // rather than "#undefined".
+    reference: typeof row.reference === 'number' ? row.reference : 0,
     carId: row.car_id as string,
     userId: row.user_id as string,
     startsAt: row.starts_at as string,

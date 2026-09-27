@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daySegment, overlapsDay } from './dates'
+import { daySegment, monthGridDays, overlapsDay } from './dates'
 
 /**
  * A reservation spanning several days must not repeat its start and end time
@@ -88,5 +88,41 @@ describe('overlapsDay', () => {
 
   it('does not spill onto the next day when it ends exactly at midnight', () => {
     expect(overlapsDay(at(MONDAY, 9), at(TUESDAY, 0), TUESDAY)).toBe(false)
+  })
+})
+
+describe('monthGridDays', () => {
+  // Checked across two years rather than one hand-picked month, so no calendar
+  // quirk (leap year, month starting on a Sunday) slips through.
+  const months = Array.from({ length: 24 }, (_, i) => new Date(2026, i, 1))
+
+  it('always covers whole weeks, Monday to Sunday', () => {
+    for (const month of months) {
+      const days = monthGridDays(month)
+      expect(days.length % 7).toBe(0)
+      expect(days[0].getDay()).toBe(1)
+      expect(days[days.length - 1].getDay()).toBe(0)
+    }
+  })
+
+  it('contains every day of the month', () => {
+    for (const month of months) {
+      const days = monthGridDays(month)
+      const inMonth = days.filter((d) => d.getMonth() === month.getMonth())
+      const lastOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+      expect(inMonth).toHaveLength(lastOfMonth)
+      expect(inMonth[0].getDate()).toBe(1)
+      expect(inMonth[inMonth.length - 1].getDate()).toBe(lastOfMonth)
+    }
+  })
+
+  it('never adds a row that belongs entirely to another month', () => {
+    for (const month of months) {
+      const days = monthGridDays(month)
+      for (let i = 0; i < days.length; i += 7) {
+        const week = days.slice(i, i + 7)
+        expect(week.some((d) => d.getMonth() === month.getMonth())).toBe(true)
+      }
+    }
   })
 })

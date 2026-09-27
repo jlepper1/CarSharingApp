@@ -31,6 +31,8 @@ export interface Car {
 
 export interface Booking {
   id: UUID
+  /** Fortlaufende Nummer, von der Datenbank vergeben. Zum Bezugnehmen in der Familie. */
+  reference: number
   carId: UUID
   userId: UUID
   startsAt: ISODateTime

@@ -74,6 +74,22 @@ export function fromDateTimeLocal(value: string): Date {
   return new Date(value)
 }
 
+/**
+ * Every day shown in a month grid: whole weeks, Monday first, padded with the
+ * tail of the previous month and the head of the next so the rows stay square.
+ * Five or six rows depending on how the month falls, never a blank row.
+ */
+export function monthGridDays(month: Date): Date[] {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1)
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+  const start = startOfWeek(first)
+  const end = addDays(startOfWeek(last), 7)
+
+  const days: Date[] = []
+  for (let day = start; day < end; day = addDays(day, 1)) days.push(day)
+  return days
+}
+
 /** Monday..Sunday of the week containing `date`. */
 export function weekDays(date: Date): Date[] {
   const monday = startOfWeek(date)

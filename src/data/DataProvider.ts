@@ -43,7 +43,8 @@ export type SaveResult<T> =
   | { ok: false; reason: SaveFailureReason; message: string }
 
 export type NewCar = Omit<Car, 'id'>
-export type NewBooking = Omit<Booking, 'id'>
+// The database assigns the reference number, so callers never supply it.
+export type NewBooking = Omit<Booking, 'id' | 'reference'>
 export type NewTrip = Omit<Trip, 'id' | 'distanceKm'>
 export type NewExpense = Omit<Expense, 'id'>
 
