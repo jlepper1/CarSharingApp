@@ -213,3 +213,43 @@ describe('the backdrop after a native picker closes', () => {
     expect(onClose).toHaveBeenCalled()
   })
 })
+
+describe('the end field following the start', () => {
+  it('shifts the end when the start moves, keeping the duration', () => {
+    open()
+    expect(toField().value).toBe('2026-09-21T17:00')
+
+    fireEvent.change(fromField(), { target: { value: '2026-09-21T11:00' } })
+
+    expect(fromField().value).toBe('2026-09-21T11:00')
+    expect(toField().value).toBe('2026-09-21T19:00')
+    // Still eight hours, so the duration on screen is unchanged.
+    expect(screen.getByText('8 Std.')).toBeInTheDocument()
+  })
+
+  it('carries the end into the next day when the start moves late', () => {
+    open()
+    fireEvent.change(fromField(), { target: { value: '2026-09-21T20:00' } })
+    expect(toField().value).toBe('2026-09-22T04:00')
+  })
+
+  it('leaves the end free to be set on its own afterwards', () => {
+    open()
+    fireEvent.change(fromField(), { target: { value: '2026-09-21T11:00' } })
+    fireEvent.change(toField(), { target: { value: '2026-09-21T12:00' } })
+    expect(toField().value).toBe('2026-09-21T12:00')
+    expect(screen.getByText('1 Std.')).toBeInTheDocument()
+  })
+
+  it('sends the shifted end to the provider', async () => {
+    open()
+    fireEvent.change(fromField(), { target: { value: '2026-09-22T10:00' } })
+    fireEvent.click(saveButton())
+    await vi.waitFor(() => expect(updateBooking).toHaveBeenCalled())
+
+    expect(updateBooking.mock.calls[0][1]).toMatchObject({
+      startsAt: new Date(2026, 8, 22, 10, 0).toISOString(),
+      endsAt: new Date(2026, 8, 22, 18, 0).toISOString(),
+    })
+  })
+})

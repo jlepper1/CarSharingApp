@@ -17,6 +17,7 @@ import { useApp, useProfileLookup } from '../context/AppContext'
 import type { Booking } from '../data/types'
 import {
   daySegment,
+  endFollowingStart,
   formatDay,
   formatLongDay,
   formatTime,
@@ -427,6 +428,12 @@ function BookingDialog({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  /** Changing the start moves the end with it, so only one field needs typing. */
+  function handleStartChange(value: string) {
+    setEndsAt((currentEnd) => endFollowingStart(startsAt, value, currentEnd))
+    setStartsAt(value)
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!user) return
@@ -480,7 +487,7 @@ function BookingDialog({
               <Input
                 type="datetime-local"
                 value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
+                onChange={(e) => handleStartChange(e.target.value)}
                 required
               />
             </Field>

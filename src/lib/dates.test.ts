@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daySegment, monthGridDays, overlapsDay } from './dates'
+import { daySegment, endFollowingStart, monthGridDays, overlapsDay } from './dates'
 
 /**
  * A reservation spanning several days must not repeat its start and end time
@@ -123,6 +123,52 @@ describe('monthGridDays', () => {
         const week = days.slice(i, i + 7)
         expect(week.some((d) => d.getMonth() === month.getMonth())).toBe(true)
       }
+    }
+  })
+})
+
+describe('endFollowingStart', () => {
+  it('moves the end by the same amount, keeping the duration', () => {
+    expect(
+      endFollowingStart('2026-09-21T09:00', '2026-09-21T11:00', '2026-09-21T17:00'),
+    ).toBe('2026-09-21T19:00')
+  })
+
+  it('carries the end into the next day when the start moves late', () => {
+    expect(
+      endFollowingStart('2026-09-21T09:00', '2026-09-21T20:00', '2026-09-21T17:00'),
+    ).toBe('2026-09-22T04:00')
+  })
+
+  it('moves the end backwards when the start moves earlier', () => {
+    expect(
+      endFollowingStart('2026-09-21T09:00', '2026-09-20T09:00', '2026-09-21T17:00'),
+    ).toBe('2026-09-20T17:00')
+  })
+
+  it('keeps a multi-day reservation the same length', () => {
+    expect(
+      endFollowingStart('2026-09-21T09:00', '2026-09-28T09:00', '2026-09-23T17:00'),
+    ).toBe('2026-09-30T17:00')
+  })
+
+  it('leaves the end alone when the start did not really move', () => {
+    expect(
+      endFollowingStart('2026-09-21T09:00', '2026-09-21T09:00', '2026-09-21T17:00'),
+    ).toBe('2026-09-21T17:00')
+  })
+
+  it('leaves the end alone when a value is empty or unusable', () => {
+    expect(endFollowingStart('', '2026-09-21T11:00', '2026-09-21T17:00')).toBe('2026-09-21T17:00')
+    expect(endFollowingStart('2026-09-21T09:00', '', '2026-09-21T17:00')).toBe('2026-09-21T17:00')
+    expect(endFollowingStart('2026-09-21T09:00', '2026-09-21T11:00', '')).toBe('')
+  })
+
+  it('never lets the end overtake the start', () => {
+    const starts = ['2026-09-21T00:00', '2026-09-21T23:30', '2026-12-31T22:00']
+    for (const next of starts) {
+      const end = endFollowingStart('2026-09-21T09:00', next, '2026-09-21T17:00')
+      expect(new Date(end).getTime()).toBeGreaterThan(new Date(next).getTime())
     }
   })
 })

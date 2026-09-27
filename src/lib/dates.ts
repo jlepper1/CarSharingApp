@@ -75,6 +75,30 @@ export function fromDateTimeLocal(value: string): Date {
 }
 
 /**
+ * Moving the start drags the end along, keeping the reservation the same
+ * length. Saves correcting both fields when a booking simply shifts.
+ *
+ * Both values are `<input type="datetime-local">` strings. An unusable or
+ * empty value leaves the end alone rather than inventing one.
+ */
+export function endFollowingStart(
+  previousStart: string,
+  nextStart: string,
+  currentEnd: string,
+): string {
+  const previous = new Date(previousStart)
+  const next = new Date(nextStart)
+  const end = new Date(currentEnd)
+
+  if ([previous, next, end].some((d) => Number.isNaN(d.getTime()))) return currentEnd
+
+  const shift = next.getTime() - previous.getTime()
+  if (shift === 0) return currentEnd
+
+  return toDateTimeLocal(new Date(end.getTime() + shift))
+}
+
+/**
  * Every day shown in a month grid: whole weeks, Monday first, padded with the
  * tail of the previous month and the head of the next so the rows stay square.
  * Five or six rows depending on how the month falls, never a blank row.

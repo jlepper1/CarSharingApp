@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Button, ErrorBanner, Field, Input, Select } from './ui'
 import { useApp, useProfileLookup } from '../context/AppContext'
 import type { Booking } from '../data/types'
-import { formatLongDay, formatTime, toDateTimeLocal } from '../lib/dates'
+import { endFollowingStart, formatLongDay, formatTime, toDateTimeLocal } from '../lib/dates'
 import { formatDuration } from '../lib/format'
 
 /**
@@ -45,6 +45,12 @@ export default function BookingDetail({
     startsAt !== toDateTimeLocal(new Date(booking.startsAt)) ||
     endsAt !== toDateTimeLocal(new Date(booking.endsAt)) ||
     purpose !== (booking.purpose ?? '')
+
+  /** Changing the start moves the end with it, so only one field needs typing. */
+  function handleStartChange(value: string) {
+    setEndsAt((currentEnd) => endFollowingStart(startsAt, value, currentEnd))
+    setStartsAt(value)
+  }
 
   async function handleSave(event: FormEvent) {
     event.preventDefault()
@@ -163,7 +169,7 @@ export default function BookingDetail({
               <Input
                 type="datetime-local"
                 value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
+                onChange={(e) => handleStartChange(e.target.value)}
                 required
               />
             </Field>
