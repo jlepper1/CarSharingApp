@@ -15,8 +15,9 @@ import MonthPicker from '../components/MonthPicker'
 import { useApp, useProfileLookup } from '../context/AppContext'
 import { useLiveReload } from '../lib/useLiveReload'
 import { CATEGORY_LABELS, type Expense, type ExpenseCategory } from '../data/types'
-import { formatDateISO, monthRange, todayISO } from '../lib/dates'
+import { formatDateISO, formatMonth, formatPeriod, monthRange, todayISO } from '../lib/dates'
 import { formatCents, parseAmountToCents } from '../lib/format'
+import { accruedCents, costSummary } from '../lib/settlement'
 
 const CATEGORY_ORDER: ExpenseCategory[] = [
   'fuel',
@@ -63,18 +64,8 @@ export default function ExpensesScreen() {
 
   useLiveReload(['expenses'], () => void load(true))
 
-  const byCategory = useMemo(() => {
-    const totals = new Map<ExpenseCategory, number>()
-    for (const expense of expenses) {
-      totals.set(expense.category, (totals.get(expense.category) ?? 0) + expense.amountCents)
-    }
-    return CATEGORY_ORDER.filter((c) => totals.has(c)).map((c) => ({
-      category: c,
-      cents: totals.get(c)!,
-    }))
-  }, [expenses])
-
-  const total = expenses.reduce((sum, e) => sum + e.amountCents, 0)
+  const summary = useMemo(() => costSummary(expenses, range), [expenses, range])
+  const total = summary.reduce((sum, row) => sum + row.cents, 0)
 
   return (
     <Screen
@@ -92,17 +83,27 @@ export default function ExpensesScreen() {
         <Spinner />
       ) : (
         <>
-          {byCategory.length > 0 ? (
+          {summary.length > 0 ? (
             <Card className="mb-3">
               <div className="mb-2 flex items-baseline justify-between">
                 <h2 className="text-sm font-semibold text-slate-700">Summe</h2>
                 <span className="text-sm font-semibold text-slate-900">{formatCents(total)}</span>
               </div>
               <ul className="space-y-1">
-                {byCategory.map(({ category, cents }) => (
-                  <li key={category} className="flex justify-between text-sm">
-                    <span className="text-slate-600">{CATEGORY_LABELS[category]}</span>
-                    <span className="tabular-nums text-slate-700">{formatCents(cents)}</span>
+                {summary.map(({ category, period, cents }, index) => (
+                  <li key={index} className="flex justify-between gap-2 text-sm">
+                    <span className="text-slate-600">
+                      {CATEGORY_LABELS[category]}
+                      {period ? (
+                        <span className="text-slate-400">
+                          {' '}
+                          ({formatPeriod(period.start, period.end)})
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-700">
+                      {formatCents(cents)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -146,8 +147,9 @@ export default function ExpensesScreen() {
                             </div>
                             {expense.periodStart && expense.periodEnd ? (
                               <div className="mt-0.5 text-xs text-brand-700">
-                                Zeitraum {formatDateISO(expense.periodStart)} –{' '}
-                                {formatDateISO(expense.periodEnd)} · wird anteilig verteilt
+                                Zeitraum {formatPeriod(expense.periodStart, expense.periodEnd)} ·
+                                Anteil {formatMonth(month)}:{' '}
+                                {formatCents(accruedCents(expense, range))}
                               </div>
                             ) : null}
                             {expense.note ? (

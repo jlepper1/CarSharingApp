@@ -285,6 +285,60 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
   return { range, rule, totalCents, totalKm, people, transfers: settleUp(people), lines }
 }
 
+/** One row of the cost summary on the "Kosten" tab. */
+export interface CostSummaryRow {
+  category: ExpenseCategory
+  /** Set for a bill spread over a period; such a bill gets its own row. */
+  period: { start: ISODate; end: ISODate } | null
+  /** The part that falls into the range - the month's share for a yearly bill. */
+  cents: number
+}
+
+/**
+ * The costs of a period by category. One-off costs are summed per category;
+ * each bill spread over a period (a yearly Versicherung, say) gets its own row
+ * with only the share for this period, so the total matches the settlement
+ * instead of counting a yearly premium in full in every month it touches.
+ */
+export function costSummary(expenses: Expense[], range: DateRange): CostSummaryRow[] {
+  const oneOff = new Map<ExpenseCategory, number>()
+  const spread: CostSummaryRow[] = []
+  for (const expense of expenses) {
+    const cents = accruedCents(expense, range)
+    if (cents === 0) continue
+    if (expense.periodStart && expense.periodEnd) {
+      spread.push({
+        category: expense.category,
+        period: { start: expense.periodStart, end: expense.periodEnd },
+        cents,
+      })
+    } else {
+      oneOff.set(expense.category, (oneOff.get(expense.category) ?? 0) + cents)
+    }
+  }
+
+  const rows: CostSummaryRow[] = [
+    ...[...oneOff].map(([category, cents]) => ({ category, period: null, cents })),
+    ...spread,
+  ]
+  const order = (c: ExpenseCategory) => SUMMARY_ORDER.indexOf(c)
+  return rows.sort(
+    (a, b) =>
+      order(a.category) - order(b.category) ||
+      (a.period?.start ?? '').localeCompare(b.period?.start ?? ''),
+  )
+}
+
+const SUMMARY_ORDER: ExpenseCategory[] = [
+  'fuel',
+  'insurance',
+  'tax',
+  'repair',
+  'service',
+  'tires',
+  'other',
+]
+
 /** One row of a person's cost statement: an expense category for one car. */
 export interface BreakdownRow {
   category: ExpenseCategory

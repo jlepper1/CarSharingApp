@@ -64,6 +64,22 @@ export function formatDateISO(date: ISODate): string {
   return dayFormat.format(fromISODate(date))
 }
 
+const shortDate = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' })
+const fullDate = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
+/** A covered period, e.g. "01.01.–31.12.2026", or with both years when they differ. */
+export function formatPeriod(from: ISODate, to: ISODate): string {
+  const start = fromISODate(from)
+  const end = fromISODate(to)
+  const startText =
+    start.getFullYear() === end.getFullYear() ? shortDate.format(start) : fullDate.format(start)
+  return `${startText}–${fullDate.format(end)}`
+}
+
 /** Value for `<input type="datetime-local">`, which wants local time. */
 export function toDateTimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')

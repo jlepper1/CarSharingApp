@@ -5,6 +5,7 @@ import {
   accruedCents,
   carStats,
   computeSettlement,
+  costSummary,
   distributeCents,
   kmByUser,
   kmByUserAndCar,
@@ -537,5 +538,54 @@ describe('carStats', () => {
     expect(stats).toEqual([
       expect.objectContaining({ carId: null, costCents: 900, centsPerKm: null }),
     ])
+  })
+})
+
+describe('costSummary', () => {
+  const premium = expense(BERND, 'insurance', 80_000, {
+    id: 'premium',
+    incurredOn: '2025-12-20',
+    periodStart: '2026-01-01',
+    periodEnd: '2026-12-31',
+  })
+
+  it('shows a yearly bill with only its share for the month', () => {
+    expect(costSummary([premium], JANUARY)).toEqual([
+      {
+        category: 'insurance',
+        period: { start: '2026-01-01', end: '2026-12-31' },
+        cents: INSURANCE_IN_JANUARY,
+      },
+    ])
+  })
+
+  it('sums one-off costs per category and keeps each spread bill on its own row', () => {
+    const rows = costSummary(
+      [
+        expense(ANNA, 'fuel', 5_000, { id: 'f1' }),
+        expense(BERND, 'fuel', 3_000, { id: 'f2' }),
+        premium,
+        expense(ANNA, 'insurance', 1_000, { id: 'one-off-insurance' }),
+      ],
+      JANUARY,
+    )
+    expect(rows.map((r) => [r.category, r.period?.start ?? null, r.cents])).toEqual([
+      ['fuel', null, 8_000],
+      ['insurance', null, 1_000],
+      ['insurance', '2026-01-01', INSURANCE_IN_JANUARY],
+    ])
+  })
+
+  it('adds up to the same total as the settlement', () => {
+    const all = [...expenses, premium]
+    const sum = costSummary(all, JANUARY).reduce((a, r) => a + r.cents, 0)
+    const settled = computeSettlement({
+      profiles,
+      trips,
+      expenses: all,
+      rule: 'all_equal',
+      range: JANUARY,
+    })
+    expect(sum).toBe(settled.totalCents)
   })
 })

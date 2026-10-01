@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { daySegment, endFollowingStart, monthGridDays, overlapsDay } from './dates'
+import {
+  daySegment,
+  endFollowingStart,
+  formatPeriod,
+  monthGridDays,
+  overlapsDay,
+} from './dates'
 
 /**
  * A reservation spanning several days must not repeat its start and end time
@@ -170,5 +176,15 @@ describe('endFollowingStart', () => {
       const end = endFollowingStart('2026-09-21T09:00', next, '2026-09-21T17:00')
       expect(new Date(end).getTime()).toBeGreaterThan(new Date(next).getTime())
     }
+  })
+})
+
+describe('formatPeriod', () => {
+  it('shows the year once when both dates share it', () => {
+    expect(formatPeriod('2026-01-01', '2026-12-31')).toBe('01.01.–31.12.2026')
+  })
+
+  it('shows both years across a year boundary', () => {
+    expect(formatPeriod('2026-04-01', '2027-03-31')).toBe('01.04.2026–31.03.2027')
   })
 })
