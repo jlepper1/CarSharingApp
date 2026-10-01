@@ -4,30 +4,19 @@ import MonthPicker from '../components/MonthPicker'
 import { useApp, useProfileLookup } from '../context/AppContext'
 import type { Expense, Trip } from '../data/types'
 import { SPLIT_RULE_LABELS } from '../data/types'
-import { monthRange, yearRange } from '../lib/dates'
 import { formatCents, formatKm, formatPercent } from '../lib/format'
 import { computeSettlement } from '../lib/settlement'
-
-type Period = 'month' | 'year'
+import { useSettlementPeriod } from '../lib/useSettlementPeriod'
 
 export default function SettlementScreen() {
   const { provider, profiles, settings } = useApp()
   const lookup = useProfileLookup()
 
-  const [period, setPeriod] = useState<Period>('month')
-  const [month, setMonth] = useState(() => new Date())
+  const { period, month, range, setPeriod, setMonth } = useSettlementPeriod()
   const [trips, setTrips] = useState<Trip[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const range = useMemo(
-    () =>
-      period === 'month'
-        ? monthRange(month.getFullYear(), month.getMonth())
-        : yearRange(month.getFullYear()),
-    [period, month],
-  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -64,11 +53,11 @@ export default function SettlementScreen() {
           Monat
         </PeriodTab>
         <PeriodTab active={period === 'year'} onClick={() => setPeriod('year')}>
-          Jahr {month.getFullYear()}
+          Jahr
         </PeriodTab>
       </div>
 
-      <MonthPicker month={month} onChange={setMonth} />
+      <MonthPicker month={month} onChange={setMonth} unit={period} />
 
       {loading || !result ? (
         <Spinner label="Abrechnung wird berechnet …" />
