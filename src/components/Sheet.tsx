@@ -45,17 +45,24 @@ export function Sheet({
     onClose()
   }
 
+  /*
+   * The sheet is never taller than the visible screen: the header with ✕ stays
+   * put and only the body scrolls. Letting the whole sheet overflow does not
+   * work - aligned to the bottom, a sheet taller than the screen sticks out
+   * above the top edge, where no scrolling can reach, and on an iPhone that
+   * hid the close button of the long cost form.
+   */
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center overflow-y-auto bg-slate-900/40 sm:items-center"
+      className="fixed inset-0 z-30 flex items-end justify-center bg-slate-900/40 sm:items-center"
       onClick={handleBackdropClick}
     >
       <div
         role="dialog"
         aria-label={label ?? title}
-        className="w-full max-w-md rounded-t-2xl bg-white p-5 safe-bottom sm:rounded-2xl"
+        className="sheet-max-h flex w-full max-w-md flex-col rounded-t-2xl bg-white sm:rounded-2xl"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 px-5 pt-5 pb-4">
           <div>
             {kicker ? (
               <span className="text-xs font-medium tabular-nums text-slate-400">{kicker}</span>
@@ -71,7 +78,12 @@ export function Sheet({
             ✕
           </button>
         </div>
-        {children}
+        <div
+          data-testid="sheet-body"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 safe-bottom"
+        >
+          {children}
+        </div>
       </div>
     </div>
   )

@@ -38,6 +38,15 @@ body {
   }
 }
 
+/*
+ * Bottom sheets stop below the notch. dvh follows the visible screen as the
+ * Safari toolbar shows and hides; older browsers fall back to vh.
+ */
+.sheet-max-h {
+  max-height: 92vh;
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.75rem);
+}
+
 /* Keep content clear of the iPhone notch and the home indicator. */
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);

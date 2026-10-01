@@ -115,3 +115,16 @@ describe('adding a cost', () => {
     expect(field(/Über einen Zeitraum/).checked).toBe(true)
   })
 })
+
+describe('the sheet on a small screen', () => {
+  // On an iPhone the long cost form overflowed above the top edge, where
+  // nothing can scroll to, so the close button was unreachable.
+  it('keeps the close button outside the scrolling body', () => {
+    open(insurance)
+    const body = screen.getByTestId('sheet-body')
+    const close = screen.getByRole('button', { name: 'Schließen' })
+    expect(body).toHaveClass('overflow-y-auto')
+    expect(body).not.toContainElement(close)
+    expect(body).toContainElement(screen.getByRole('button', { name: 'Kosten für alle löschen' }))
+  })
+})
