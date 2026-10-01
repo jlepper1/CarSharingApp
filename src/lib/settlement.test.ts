@@ -5,6 +5,7 @@ import {
   accruedCents,
   computeSettlement,
   distributeCents,
+  kmByUser,
   settleUp,
 } from './settlement'
 
@@ -23,11 +24,16 @@ const profiles: Profile[] = [
 
 const JANUARY: DateRange = { from: '2026-01-01', to: '2026-01-31' }
 
-function trip(userId: string, km: number, drivenOn = '2026-01-10'): Trip {
+const NO_AUDIT = { createdBy: null, updatedBy: null, updatedAt: null }
+
+/** A trip by one person, or shared by several. */
+function trip(people: string | string[], km: number, drivenOn = '2026-01-10'): Trip {
+  const participantIds = Array.isArray(people) ? people : [people]
   return {
-    id: `trip-${userId}-${km}`,
+    ...NO_AUDIT,
+    id: `trip-${participantIds.join('+')}-${km}-${drivenOn}`,
     carId: 'car-1',
-    userId,
+    participantIds,
     bookingId: null,
     drivenOn,
     odometerStart: 0,
@@ -55,6 +61,7 @@ function expense(
     liters: null,
     note: null,
     receiptPath: null,
+    ...NO_AUDIT,
     ...extra,
   }
 }
@@ -260,6 +267,68 @@ describe('computeSettlement', () => {
     })
     const carla = result.people.find((p) => p.userId === 'user-old')
     expect(carla?.paidCents).toBe(10_000)
+  })
+})
+
+describe('shared trips', () => {
+  const CARLA = 'user-carla'
+  const three: Profile[] = [
+    ...profiles,
+    { id: CARLA, displayName: 'Carla', color: '#7c3aed', active: true },
+  ]
+
+  it('splits a shared trip equally between everyone on it', () => {
+    const km = kmByUser([trip([ANNA, BERND, CARLA], 90)])
+    expect(km.get(ANNA)).toBe(30)
+    expect(km.get(BERND)).toBe(30)
+    expect(km.get(CARLA)).toBe(30)
+  })
+
+  it('ignores a person listed twice on the same trip', () => {
+    expect(kmByUser([trip([ANNA, ANNA, BERND], 100)]).get(ANNA)).toBe(50)
+  })
+
+  it('never counts a shared trip twice in the total', () => {
+    const result = computeSettlement({
+      profiles: three,
+      trips: [trip([ANNA, BERND, CARLA], 90), trip(ANNA, 10)],
+      expenses: [expense(ANNA, 'fuel', 10_000)],
+      rule: 'all_by_km',
+      range: JANUARY,
+    })
+    expect(result.totalKm).toBe(100)
+    const kmSum = result.people.reduce((a, p) => a + p.distanceKm, 0)
+    expect(kmSum).toBeCloseTo(100)
+    expect(result.people.find((p) => p.userId === ANNA)?.distanceKm).toBe(40)
+  })
+
+  it('shares the cost of a shared trip and still balances to zero', () => {
+    const result = computeSettlement({
+      profiles: three,
+      trips: [trip([ANNA, BERND, CARLA], 100)],
+      expenses: [expense(ANNA, 'fuel', 10_000)],
+      rule: 'all_by_km',
+      range: JANUARY,
+    })
+    expect(result.people.map((p) => p.owesCents).sort()).toEqual([3_333, 3_333, 3_334])
+    expect(result.people.reduce((a, p) => a + p.balanceCents, 0)).toBe(0)
+  })
+
+  it('still settles an inactive person who only rode along', () => {
+    const withInactive: Profile[] = [
+      ...profiles,
+      { id: 'user-old', displayName: 'Dora', color: '#7c3aed', active: false },
+    ]
+    const result = computeSettlement({
+      profiles: withInactive,
+      trips: [trip([ANNA, 'user-old'], 100)],
+      expenses: [expense(ANNA, 'fuel', 10_000)],
+      rule: 'all_by_km',
+      range: JANUARY,
+    })
+    const dora = result.people.find((p) => p.userId === 'user-old')
+    expect(dora?.distanceKm).toBe(50)
+    expect(dora?.owesCents).toBe(5_000)
   })
 })
 

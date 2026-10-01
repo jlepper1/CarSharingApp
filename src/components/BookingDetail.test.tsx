@@ -38,6 +38,9 @@ const booking: Booking = {
   startsAt: local(9),
   endsAt: local(17),
   purpose: 'Einkaufen',
+  createdBy: ANNA.id,
+  updatedBy: null,
+  updatedAt: null,
 }
 
 function open(overrides: Partial<Booking> = {}) {
@@ -184,11 +187,29 @@ describe('closing the form', () => {
 })
 
 describe('someone else reservation', () => {
-  it('is read-only', () => {
+  // The family looks after the calendar together, so anyone may fix anything.
+  it('opens as an editable form too', () => {
     open({ userId: BERND.id })
-    expect(screen.queryByLabelText(/Zweck/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /löschen/i })).not.toBeInTheDocument()
-    expect(screen.getByText(/Nur Bernd kann diese Reservierung ändern/)).toBeInTheDocument()
+    expect(purposeField()).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reservierung löschen' })).toBeInTheDocument()
+  })
+
+  it('names whose reservation is being deleted', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { onChanged } = open({ userId: BERND.id })
+    fireEvent.click(screen.getByRole('button', { name: 'Reservierung löschen' }))
+
+    expect(confirmSpy).toHaveBeenCalledWith('Reservierung #7 von Bernd wirklich löschen?')
+    await vi.waitFor(() => expect(onChanged).toHaveBeenCalled())
+    expect(deleteBooking).toHaveBeenCalledWith('b1')
+    confirmSpy.mockRestore()
+  })
+
+  it('shows who entered and who last changed it', () => {
+    open({ userId: BERND.id, createdBy: BERND.id, updatedBy: ANNA.id, updatedAt: '2026-10-03T08:00:00Z' })
+    expect(
+      screen.getByText('Eingetragen von Bernd · zuletzt geändert von Anna am 03.10.2026'),
+    ).toBeInTheDocument()
   })
 })
 

@@ -29,9 +29,11 @@ Einmalig, dauert etwa 15 Minuten.
 
 1. Auf [supabase.com](https://supabase.com) kostenlos registrieren.
 2. Neues Projekt anlegen (Region Frankfurt ist am nächsten).
-3. Im Menü **SQL Editor** öffnen, den Inhalt von
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
-   komplett einfügen und ausführen.
+3. Im Menü **SQL Editor** öffnen und die Dateien aus
+   [`supabase/migrations/`](supabase/migrations/) **der Reihe nach** einzeln
+   einfügen und ausführen: `0001_init.sql`, `0002_booking_reference.sql`,
+   `0003_shared_trips.sql` und so weiter. Bei einem Update der App nur die
+   neuen Dateien ausführen.
 
 ### 2. Selbstregistrierung abschalten
 

@@ -8,6 +8,7 @@ import type {
   AuthUser,
   DataProvider,
   DateRange,
+  LeaveTripOutcome,
   NewBooking,
   NewCar,
   NewExpense,
@@ -15,6 +16,7 @@ import type {
   SaveResult,
 } from '../DataProvider'
 import type {
+  Audit,
   Booking,
   Car,
   Expense,
@@ -48,15 +50,22 @@ function dayAfter(date: ISODate): string {
   return new Date(y, m - 1, d + 1, 0, 0, 0, 0).toISOString()
 }
 
-/** Turn a Postgres error into something a family member can actually read. */
-function toFailure(error: PostgrestError): { ok: false; reason: never | 'conflict' | 'auth' | 'validation' | 'unknown'; message: string } {
+const BOOKING_CONFLICT = 'Dieses Auto ist in dem Zeitraum bereits reserviert.'
+const TRIP_CONFLICT = 'Diese km sind für dieses Auto schon als Fahrt eingetragen.'
+
+/**
+ * Turn a Postgres error into something a family member can actually read.
+ *
+ * `conflictMessage` names what overlapped, since bookings (time) and trips
+ * (odometer readings) each have their own exclusion constraint.
+ */
+function toFailure(
+  error: PostgrestError,
+  conflictMessage = BOOKING_CONFLICT,
+): { ok: false; reason: 'conflict' | 'auth' | 'validation' | 'unknown'; message: string } {
   switch (error.code) {
-    case '23P01': // exclusion_violation - the bookings_no_overlap constraint
-      return {
-        ok: false,
-        reason: 'conflict',
-        message: 'Dieses Auto ist in dem Zeitraum bereits reserviert.',
-      }
+    case '23P01': // exclusion_violation - bookings_no_overlap or trips_no_odometer_overlap
+      return { ok: false, reason: 'conflict', message: conflictMessage }
     case '23514': // check_violation
       return {
         ok: false,
@@ -67,7 +76,7 @@ function toFailure(error: PostgrestError): { ok: false; reason: never | 'conflic
       return {
         ok: false,
         reason: 'auth',
-        message: 'Dafür fehlt die Berechtigung. Eigene Einträge kannst nur du selbst ändern.',
+        message: 'Dafür fehlt die Berechtigung. Ist dein Zugang als aktives Familienmitglied eingetragen?',
       }
     default:
       return { ok: false, reason: 'unknown', message: error.message }
@@ -111,6 +120,14 @@ function signInMessage(error: AuthError | null): string {
 
 type Row = Record<string, unknown>
 
+function toAudit(row: Row): Audit {
+  return {
+    createdBy: (row.created_by as string | null) ?? null,
+    updatedBy: (row.updated_by as string | null) ?? null,
+    updatedAt: (row.updated_at as string | null) ?? null,
+  }
+}
+
 function toProfile(row: Row): Profile {
   return {
     id: row.id as string,
@@ -141,6 +158,7 @@ function toBooking(row: Row): Booking {
     startsAt: row.starts_at as string,
     endsAt: row.ends_at as string,
     purpose: (row.purpose as string | null) ?? null,
+    ...toAudit(row),
   }
 }
 
@@ -148,13 +166,14 @@ function toTrip(row: Row): Trip {
   return {
     id: row.id as string,
     carId: row.car_id as string,
-    userId: row.user_id as string,
+    participantIds: (row.participant_ids as string[] | null) ?? [],
     bookingId: (row.booking_id as string | null) ?? null,
     drivenOn: row.driven_on as string,
     odometerStart: row.odometer_start as number,
     odometerEnd: row.odometer_end as number,
     distanceKm: row.distance_km as number,
     note: (row.note as string | null) ?? null,
+    ...toAudit(row),
   }
 }
 
@@ -171,6 +190,7 @@ function toExpense(row: Row): Expense {
     liters: row.liters === null || row.liters === undefined ? null : Number(row.liters),
     note: (row.note as string | null) ?? null,
     receiptPath: (row.receipt_path as string | null) ?? null,
+    ...toAudit(row),
   }
 }
 
@@ -187,7 +207,7 @@ function bookingToRow(booking: Partial<NewBooking>): Row {
 function tripToRow(trip: Partial<NewTrip>): Row {
   const row: Row = {}
   if (trip.carId !== undefined) row.car_id = trip.carId
-  if (trip.userId !== undefined) row.user_id = trip.userId
+  if (trip.participantIds !== undefined) row.participant_ids = trip.participantIds
   if (trip.bookingId !== undefined) row.booking_id = trip.bookingId
   if (trip.drivenOn !== undefined) row.driven_on = trip.drivenOn
   if (trip.odometerStart !== undefined) row.odometer_start = trip.odometerStart
@@ -425,7 +445,7 @@ export class SupabaseProvider implements DataProvider {
       .insert(tripToRow(trip))
       .select()
       .single()
-    if (error) return toFailure(error)
+    if (error) return toFailure(error, TRIP_CONFLICT)
     return { ok: true, value: toTrip(data) }
   }
 
@@ -436,8 +456,14 @@ export class SupabaseProvider implements DataProvider {
       .eq('id', id)
       .select()
       .single()
-    if (error) return toFailure(error)
+    if (error) return toFailure(error, TRIP_CONFLICT)
     return { ok: true, value: toTrip(data) }
+  }
+
+  async leaveTrip(id: UUID): Promise<SaveResult<LeaveTripOutcome>> {
+    const { data, error } = await this.client.rpc('leave_trip', { trip_id: id })
+    if (error) return toFailure(error, TRIP_CONFLICT)
+    return { ok: true, value: data as LeaveTripOutcome }
   }
 
   async deleteTrip(id: UUID): Promise<SaveResult<void>> {

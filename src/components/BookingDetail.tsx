@@ -1,16 +1,17 @@
 import { useState, type FormEvent } from 'react'
 import { Button, ErrorBanner, Field, Input, Select } from './ui'
+import { AuditNote, Sheet } from './Sheet'
 import { useApp, useProfileLookup } from '../context/AppContext'
 import type { Booking } from '../data/types'
-import { endFollowingStart, formatLongDay, formatTime, toDateTimeLocal } from '../lib/dates'
+import { endFollowingStart, toDateTimeLocal } from '../lib/dates'
 import { formatDuration } from '../lib/format'
 
 /**
  * One reservation, opened by tapping it anywhere in the app.
  *
- * Your own reservations open as a form so they can be corrected in place -
- * a wrong end time should not mean deleting and starting over. Other people's
- * are read-only, matching what the database policies allow anyway.
+ * It always opens as a form: the family looks after the calendar together, so
+ * anyone may correct or remove any reservation. Who entered and who last
+ * changed it is shown at the bottom instead.
  */
 export default function BookingDetail({
   booking,
@@ -26,7 +27,6 @@ export default function BookingDetail({
   const lookup = useProfileLookup()
 
   const person = lookup(booking.userId)
-  const car = cars.find((c) => c.id === booking.carId)
   const isMine = booking.userId === user?.id
 
   const [carId, setCarId] = useState(booking.carId)
@@ -74,8 +74,10 @@ export default function BookingDetail({
   }
 
   async function handleDelete() {
-    const label = booking.reference > 0 ? `Reservierung #${booking.reference}` : 'Diese Reservierung'
-    if (!confirm(`${label} wirklich löschen?`)) return
+    const label =
+      booking.reference > 0 ? `Reservierung #${booking.reference}` : 'Diese Reservierung'
+    const owner = isMine ? '' : ` von ${person?.displayName ?? 'Unbekannt'}`
+    if (!confirm(`${label}${owner} wirklich löschen?`)) return
 
     setBusy('delete')
     setError(null)
@@ -86,157 +88,83 @@ export default function BookingDetail({
     else setError(result.message)
   }
 
-  /**
-   * Only a tap on the backdrop itself closes the form.
-   *
-   * Relying on the dialog to stop the click from bubbling is not enough: a
-   * native date or select picker removes the element under the finger as it
-   * closes, so the click arrives at the backdrop from a node that is no longer
-   * inside the dialog. On a phone that made every attempt to change a field
-   * shut the form instead.
-   */
-  function handleBackdropClick(event: React.MouseEvent<HTMLDivElement>) {
-    if (event.target !== event.currentTarget) return
-    // Never throw away something that has been typed but not saved.
-    if (isMine && changed) return
-    onClose()
-  }
-
-  function handleCloseButton() {
-    if (isMine && changed && !confirm('Änderungen verwerfen?')) return
-    onClose()
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center overflow-y-auto bg-slate-900/40 sm:items-center"
-      onClick={handleBackdropClick}
+    <Sheet
+      title="Reservierung bearbeiten"
+      kicker={booking.reference > 0 ? `Reservierung #${booking.reference}` : undefined}
+      label={booking.reference > 0 ? `Reservierung Nummer ${booking.reference}` : 'Reservierung'}
+      dirty={changed}
+      onClose={onClose}
     >
-      <div
-        role="dialog"
-        aria-label={
-          booking.reference > 0 ? `Reservierung Nummer ${booking.reference}` : 'Reservierung'
-        }
-        className="w-full max-w-md rounded-t-2xl bg-white p-5 safe-bottom sm:rounded-2xl"
-      >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            {booking.reference > 0 ? (
-              <span className="text-xs font-medium tabular-nums text-slate-400">
-                Reservierung #{booking.reference}
-              </span>
-            ) : null}
-            <h2 className="text-lg font-semibold text-slate-900">
-              {isMine ? 'Reservierung bearbeiten' : (car?.name ?? 'Reservierung')}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={handleCloseButton}
-            aria-label="Schließen"
-            className="-mr-1 -mt-1 px-2 py-1 text-slate-400"
-          >
-            ✕
-          </button>
-        </div>
+      <ErrorBanner message={error} />
 
-        <ErrorBanner message={error} />
-
-        <div className="mb-4 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-          <span
-            className="h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: person?.color ?? '#94a3b8' }}
-          />
-          <span className="text-sm text-slate-700">
-            {person?.displayName ?? 'Unbekannt'}
-            {isMine ? ' (du)' : ''}
-          </span>
-        </div>
-
-        {isMine ? (
-          <form onSubmit={handleSave} className="space-y-4">
-            <Field label="Auto">
-              <Select value={carId} onChange={(e) => setCarId(e.target.value)} required>
-                {cars.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field label="Von">
-              <Input
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => handleStartChange(e.target.value)}
-                required
-              />
-            </Field>
-
-            <Field label="Bis">
-              <Input
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-                required
-              />
-            </Field>
-
-            <p className="text-sm text-slate-600">
-              Dauer:{' '}
-              <strong className="text-slate-900">
-                {validRange ? formatDuration(start.toISOString(), end.toISOString()) : '–'}
-              </strong>
-            </p>
-
-            <Field label="Zweck" hint="Optional, z. B. Einkaufen oder Arbeit">
-              <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} maxLength={80} />
-            </Field>
-
-            <Button type="submit" className="w-full" disabled={busy !== null || !changed}>
-              {busy === 'save' ? 'Speichern …' : changed ? 'Änderungen speichern' : 'Keine Änderungen'}
-            </Button>
-
-            <Button
-              type="button"
-              variant="danger"
-              className="w-full"
-              disabled={busy !== null}
-              onClick={() => void handleDelete()}
-            >
-              {busy === 'delete' ? 'Löschen …' : 'Reservierung löschen'}
-            </Button>
-          </form>
-        ) : (
-          <>
-            <dl className="space-y-2 text-sm">
-              <Row label="Auto">{car?.name ?? 'Auto'}</Row>
-              <Row label="Von">
-                {formatLongDay(new Date(booking.startsAt))},{' '}
-                {formatTime(new Date(booking.startsAt))} Uhr
-              </Row>
-              <Row label="Bis">
-                {formatLongDay(new Date(booking.endsAt))}, {formatTime(new Date(booking.endsAt))} Uhr
-              </Row>
-              <Row label="Dauer">{formatDuration(booking.startsAt, booking.endsAt)}</Row>
-              {booking.purpose ? <Row label="Zweck">{booking.purpose}</Row> : null}
-            </dl>
-            <p className="mt-4 text-center text-xs text-slate-500">
-              Nur {person?.displayName ?? 'die Person'} kann diese Reservierung ändern.
-            </p>
-          </>
-        )}
+      <div className="mb-4 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+        <span
+          className="h-3 w-3 shrink-0 rounded-full"
+          style={{ backgroundColor: person?.color ?? '#94a3b8' }}
+        />
+        <span className="text-sm text-slate-700">
+          {person?.displayName ?? 'Unbekannt'}
+          {isMine ? ' (du)' : ''}
+        </span>
       </div>
-    </div>
-  )
-}
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex justify-between gap-3 border-b border-slate-100 pb-2 last:border-0">
-      <dt className="shrink-0 text-slate-500">{label}</dt>
-      <dd className="text-right font-medium text-slate-800">{children}</dd>
-    </div>
+      <form onSubmit={handleSave} className="space-y-4">
+        <Field label="Auto">
+          <Select value={carId} onChange={(e) => setCarId(e.target.value)} required>
+            {cars.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Von">
+          <Input
+            type="datetime-local"
+            value={startsAt}
+            onChange={(e) => handleStartChange(e.target.value)}
+            required
+          />
+        </Field>
+
+        <Field label="Bis">
+          <Input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            required
+          />
+        </Field>
+
+        <p className="text-sm text-slate-600">
+          Dauer:{' '}
+          <strong className="text-slate-900">
+            {validRange ? formatDuration(start.toISOString(), end.toISOString()) : '–'}
+          </strong>
+        </p>
+
+        <Field label="Zweck" hint="Optional, z. B. Einkaufen oder Arbeit">
+          <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} maxLength={80} />
+        </Field>
+
+        <Button type="submit" className="w-full" disabled={busy !== null || !changed}>
+          {busy === 'save' ? 'Speichern …' : changed ? 'Änderungen speichern' : 'Keine Änderungen'}
+        </Button>
+
+        <Button
+          type="button"
+          variant="danger"
+          className="w-full"
+          disabled={busy !== null}
+          onClick={() => void handleDelete()}
+        >
+          {busy === 'delete' ? 'Löschen …' : 'Reservierung löschen'}
+        </Button>
+      </form>
+
+      <AuditNote audit={booking} />
+    </Sheet>
   )
 }

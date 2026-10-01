@@ -142,6 +142,22 @@ function splitsByKm(rule: SplitRule, expense: Expense): boolean {
   }
 }
 
+/**
+ * Kilometres per person. A shared trip counts once and is split equally, so
+ * three people on a 90 km trip get 30 km each and the per-person figures
+ * still add up to the distance actually driven.
+ */
+export function kmByUser(trips: Trip[]): Map<UUID, number> {
+  const totals = new Map<UUID, number>()
+  for (const trip of trips) {
+    const people = [...new Set(trip.participantIds)]
+    if (people.length === 0) continue
+    const share = trip.distanceKm / people.length
+    for (const id of people) totals.set(id, (totals.get(id) ?? 0) + share)
+  }
+  return totals
+}
+
 export function computeSettlement(input: SettlementInput): SettlementResult {
   const { profiles, trips, expenses, rule, range } = input
 
@@ -149,12 +165,13 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
   const accrued = expenses
     .map((expense) => ({ expense, cents: accruedCents(expense, range) }))
     .filter((entry) => entry.cents !== 0)
+  const driven = kmByUser(tripsInRange)
 
   // Include every active member, plus anyone inactive who still drove or paid
   // in this period - otherwise their money would silently vanish.
   const involved = new Set<UUID>()
   for (const profile of profiles) if (profile.active) involved.add(profile.id)
-  for (const trip of tripsInRange) involved.add(trip.userId)
+  for (const id of driven.keys()) involved.add(id)
   for (const { expense } of accrued) involved.add(expense.userId)
 
   const members = profiles.filter((p) => involved.has(p.id))
@@ -162,14 +179,9 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
     return { range, rule, totalCents: 0, totalKm: 0, people: [], transfers: [] }
   }
 
-  const kmByUser = new Map<UUID, number>(members.map((m) => [m.id, 0]))
-  for (const trip of tripsInRange) {
-    const current = kmByUser.get(trip.userId)
-    if (current === undefined) continue
-    kmByUser.set(trip.userId, current + trip.distanceKm)
-  }
-  const kmWeights = members.map((m) => kmByUser.get(m.id) ?? 0)
-  const totalKm = kmWeights.reduce((a, b) => a + b, 0)
+  const kmWeights = members.map((m) => driven.get(m.id) ?? 0)
+  // The distance driven, not the sum of shares, so rounding cannot creep in.
+  const totalKm = tripsInRange.reduce((sum, t) => sum + t.distanceKm, 0)
   const equalWeights = members.map(() => 1)
 
   const paid = new Map<UUID, number>(members.map((m) => [m.id, 0]))
@@ -196,7 +208,7 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
   const people: PersonSettlement[] = members.map((member) => {
     const paidCents = paid.get(member.id) ?? 0
     const owesCents = owes.get(member.id) ?? 0
-    const distanceKm = kmByUser.get(member.id) ?? 0
+    const distanceKm = driven.get(member.id) ?? 0
     return {
       userId: member.id,
       displayName: member.displayName,

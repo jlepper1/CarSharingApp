@@ -1,4 +1,5 @@
 import type {
+  Audit,
   Booking,
   Car,
   Expense,
@@ -43,10 +44,14 @@ export type SaveResult<T> =
   | { ok: false; reason: SaveFailureReason; message: string }
 
 export type NewCar = Omit<Car, 'id'>
-// The database assigns the reference number, so callers never supply it.
-export type NewBooking = Omit<Booking, 'id' | 'reference'>
-export type NewTrip = Omit<Trip, 'id' | 'distanceKm'>
-export type NewExpense = Omit<Expense, 'id'>
+// The database assigns the reference number and the audit trail, so callers
+// never supply them.
+export type NewBooking = Omit<Booking, 'id' | 'reference' | keyof Audit>
+export type NewTrip = Omit<Trip, 'id' | 'distanceKm' | keyof Audit>
+export type NewExpense = Omit<Expense, 'id' | keyof Audit>
+
+/** Outcome of leaving a trip: the last person out deletes it. */
+export type LeaveTripOutcome = 'left' | 'deleted' | 'not_participant'
 
 export interface DataProvider {
   // --- authentication ---
@@ -85,6 +90,8 @@ export interface DataProvider {
   getLastOdometer(carId: UUID): Promise<number>
   createTrip(trip: NewTrip): Promise<SaveResult<Trip>>
   updateTrip(id: UUID, patch: Partial<NewTrip>): Promise<SaveResult<Trip>>
+  /** Remove the signed-in user from a trip; deletes it if nobody is left. */
+  leaveTrip(id: UUID): Promise<SaveResult<LeaveTripOutcome>>
   deleteTrip(id: UUID): Promise<SaveResult<void>>
 
   // --- expenses ---

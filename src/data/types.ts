@@ -29,7 +29,19 @@ export interface Car {
   active: boolean
 }
 
-export interface Booking {
+/**
+ * Who entered and who last changed a row. Every family member may edit every
+ * entry, so this trail replaces ownership locks. Set by the database, never by
+ * the client.
+ */
+export interface Audit {
+  createdBy: UUID | null
+  /** Null until the entry is changed for the first time. */
+  updatedBy: UUID | null
+  updatedAt: ISODateTime | null
+}
+
+export interface Booking extends Audit {
   id: UUID
   /** Fortlaufende Nummer, von der Datenbank vergeben. Zum Bezugnehmen in der Familie. */
   reference: number
@@ -40,10 +52,14 @@ export interface Booking {
   purpose: string | null
 }
 
-export interface Trip {
+export interface Trip extends Audit {
   id: UUID
   carId: UUID
-  userId: UUID
+  /**
+   * Everyone on the trip, all with equal rights. The distance is shared
+   * equally between them in the settlement.
+   */
+  participantIds: UUID[]
   bookingId: UUID | null
   drivenOn: ISODate
   odometerStart: number
@@ -62,7 +78,7 @@ export type ExpenseCategory =
   | 'tires'
   | 'other'
 
-export interface Expense {
+export interface Expense extends Audit {
   id: UUID
   carId: UUID | null
   /** Who actually paid the bill. */
