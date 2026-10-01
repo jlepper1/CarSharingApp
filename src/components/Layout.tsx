@@ -12,11 +12,11 @@ const TABS = [
 export default function Layout() {
   return (
     <div className="flex min-h-full flex-col">
-      <main className="flex-1 pb-24">
+      <main className="flex-1 pb-24 print:pb-0">
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur safe-bottom">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur safe-bottom print:hidden">
         <ul className="mx-auto flex max-w-2xl">
           {TABS.map((tab) => (
             <li key={tab.to} className="flex-1">

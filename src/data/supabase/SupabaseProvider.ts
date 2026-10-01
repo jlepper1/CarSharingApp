@@ -9,9 +9,11 @@ import type {
   DataProvider,
   DateRange,
   LeaveTripOutcome,
+  LiveTable,
   NewBooking,
   NewCar,
   NewExpense,
+  NewSettlementPayment,
   NewTrip,
   SaveResult,
 } from '../DataProvider'
@@ -23,6 +25,7 @@ import type {
   ISODate,
   Profile,
   Settings,
+  SettlementPayment,
   Trip,
   UUID,
 } from '../types'
@@ -76,7 +79,8 @@ function toFailure(
       return {
         ok: false,
         reason: 'auth',
-        message: 'Dafür fehlt die Berechtigung. Ist dein Zugang als aktives Familienmitglied eingetragen?',
+        message:
+          'Dafür fehlt die Berechtigung. Ist dein Zugang als aktives Familienmitglied eingetragen?',
       }
     default:
       return { ok: false, reason: 'unknown', message: error.message }
@@ -194,6 +198,19 @@ function toExpense(row: Row): Expense {
   }
 }
 
+function toPayment(row: Row): SettlementPayment {
+  return {
+    id: row.id as string,
+    fromUserId: row.from_user as string,
+    toUserId: row.to_user as string,
+    amountCents: row.amount_cents as number,
+    appliesOn: row.applies_on as string,
+    note: (row.note as string | null) ?? null,
+    createdBy: (row.created_by as string | null) ?? null,
+    createdAt: row.created_at as string,
+  }
+}
+
 function bookingToRow(booking: Partial<NewBooking>): Row {
   const row: Row = {}
   if (booking.carId !== undefined) row.car_id = booking.carId
@@ -276,10 +293,7 @@ export class SupabaseProvider implements DataProvider {
   // --- reference data ---
 
   async listProfiles(): Promise<Profile[]> {
-    const { data, error } = await this.client
-      .from('profiles')
-      .select('*')
-      .order('display_name')
+    const { data, error } = await this.client.from('profiles').select('*').order('display_name')
     if (error) throw new Error(error.message)
     return (data ?? []).map(toProfile)
   }
@@ -341,11 +355,7 @@ export class SupabaseProvider implements DataProvider {
   }
 
   async getSettings(): Promise<Settings> {
-    const { data, error } = await this.client
-      .from('settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
+    const { data, error } = await this.client.from('settings').select('*').eq('id', 1).single()
     if (error) throw new Error(error.message)
     return { splitRule: data.split_rule, currency: data.currency }
   }
@@ -514,5 +524,53 @@ export class SupabaseProvider implements DataProvider {
     const { error } = await this.client.from('expenses').delete().eq('id', id)
     if (error) return toFailure(error)
     return { ok: true, value: undefined }
+  }
+
+  // --- settlement payments ---
+
+  async listPayments(range: DateRange): Promise<SettlementPayment[]> {
+    const { data, error } = await this.client
+      .from('settlement_payments')
+      .select('*')
+      .gte('applies_on', range.from)
+      .lte('applies_on', range.to)
+      .order('applies_on', { ascending: false })
+    if (error) throw new Error(error.message)
+    return (data ?? []).map(toPayment)
+  }
+
+  async createPayment(payment: NewSettlementPayment): Promise<SaveResult<SettlementPayment>> {
+    const { data, error } = await this.client
+      .from('settlement_payments')
+      .insert({
+        from_user: payment.fromUserId,
+        to_user: payment.toUserId,
+        amount_cents: payment.amountCents,
+        applies_on: payment.appliesOn,
+        note: payment.note,
+      })
+      .select()
+      .single()
+    if (error) return toFailure(error)
+    return { ok: true, value: toPayment(data) }
+  }
+
+  async deletePayment(id: UUID): Promise<SaveResult<void>> {
+    const { error } = await this.client.from('settlement_payments').delete().eq('id', id)
+    if (error) return toFailure(error)
+    return { ok: true, value: undefined }
+  }
+
+  // --- live updates ---
+
+  subscribe(tables: LiveTable[], onChange: () => void): () => void {
+    const channel = this.client.channel(`live-${tables.join('-')}-${crypto.randomUUID()}`)
+    for (const table of tables) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange())
+    }
+    channel.subscribe()
+    return () => {
+      void this.client.removeChannel(channel)
+    }
   }
 }

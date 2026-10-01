@@ -9,11 +9,22 @@ Startbildschirm (PWA), ohne App Store.
 - **Kalender** – wer hat wann welches Auto reserviert. Doppelbuchungen werden von
   der Datenbank verhindert, nicht nur im Browser.
 - **Fahrten** – Kilometerstand vor und nach der Fahrt; die Strecke rechnet die App
-  selbst aus. Vergessene Fahrten fallen als Lücke auf.
+  selbst aus. Eine Fahrt kann mehreren Personen gehören, die km werden dann
+  gleichmäßig geteilt. Vergessene Fahrten fallen als Lücke auf, doppelt
+  eingetragene km lehnt die Datenbank ab.
 - **Kosten** – Tanken, KFZ-Versicherung, KFZ-Steuer, Reparaturen, Wartung, Reifen.
   Jahresbeiträge werden taggenau auf die Monate verteilt.
-- **Abrechnung** – pro Person: gefahrene Kilometer, bezahlte Beträge, eigener
-  Anteil, und ein Vorschlag, wer wem wie viel überweist.
+- **Gemeinsam pflegen** – jedes Familienmitglied darf jede Reservierung, Fahrt und
+  jeden Kosteneintrag korrigieren oder löschen. Die App zeigt, wer etwas
+  eingetragen und wer es zuletzt geändert hat. Änderungen der anderen erscheinen
+  sofort, ohne Neuladen.
+- **Abrechnung** – pro Monat oder Jahr: Kosten je Auto mit €/km und Verbrauch,
+  pro Person gefahrene Kilometer, bezahlte Beträge, eigener Anteil, und ein
+  Vorschlag, wer wem wie viel überweist. Überweisungen lassen sich als bezahlt
+  markieren. Ein Tipp auf eine Person zeigt die Kostenaufstellung Posten für
+  Posten. Diagramme zeigen, wer wie viel mit welchem Auto gefahren ist, wer wie
+  viel Kosten trug und wer wann welches Auto hatte. Export als CSV für Excel
+  oder über „Drucken“ als PDF.
 - **Einstellungen** – die Verteilregel ist umschaltbar:
   | Regel | Bedeutung |
   | --- | --- |

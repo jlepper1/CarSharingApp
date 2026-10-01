@@ -31,6 +31,13 @@ body {
     sans-serif;
 }
 
+/* "Drucken / PDF" in the settlement: white paper, no app chrome. */
+@media print {
+  body {
+    background: #fff;
+  }
+}
+
 /* Keep content clear of the iPhone notch and the home indicator. */
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);

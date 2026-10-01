@@ -1,12 +1,40 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+} from 'react'
+import { Link } from 'react-router-dom'
 
 /** Small shared building blocks, so the screens stay about behaviour. */
 
-export function Screen({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+export function Screen({
+  title,
+  action,
+  back,
+  children,
+}: {
+  title: string
+  action?: ReactNode
+  /** Where the ‹ arrow next to the title leads, for pages below a tab. */
+  back?: { to: string; label: string }
+  children: ReactNode
+}) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-6">
-      <header className="sticky top-0 z-10 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-100/90 px-4 py-3 backdrop-blur safe-top">
-        <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
+      <header className="sticky top-0 z-10 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-100/90 px-4 py-3 backdrop-blur safe-top print:static">
+        <div className="flex min-w-0 items-center gap-1">
+          {back ? (
+            <Link
+              to={back.to}
+              aria-label={back.label}
+              className="-ml-2 px-2 text-2xl leading-none text-brand-700 print:hidden"
+            >
+              ‹
+            </Link>
+          ) : null}
+          <h1 className="truncate text-lg font-semibold text-slate-900">{title}</h1>
+        </div>
         {action}
       </header>
       {children}
@@ -16,7 +44,9 @@ export function Screen({ title, action, children }: { title: string; action?: Re
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>
+    <div
+      className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm print:break-inside-avoid print:shadow-none ${className}`}
+    >
       {children}
     </div>
   )
@@ -42,7 +72,15 @@ export function Button({ variant = 'primary', className = '', ...props }: Button
   )
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: ReactNode
+}) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>

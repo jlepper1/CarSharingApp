@@ -13,6 +13,7 @@ import {
 import { AuditNote, Sheet } from '../components/Sheet'
 import MonthPicker from '../components/MonthPicker'
 import { useApp, useProfileLookup } from '../context/AppContext'
+import { useLiveReload } from '../lib/useLiveReload'
 import { CATEGORY_LABELS, type Expense, type ExpenseCategory } from '../data/types'
 import { formatDateISO, monthRange, todayISO } from '../lib/dates'
 import { formatCents, parseAmountToCents } from '../lib/format'
@@ -40,21 +41,27 @@ export default function ExpensesScreen() {
 
   const range = useMemo(() => monthRange(month.getFullYear(), month.getMonth()), [month])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setExpenses(await provider.listExpenses(range))
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [provider, range])
+  /** `quiet` keeps the list on screen during a live refresh. */
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setLoading(true)
+      setError(null)
+      try {
+        setExpenses(await provider.listExpenses(range))
+      } catch (err) {
+        setError((err as Error).message)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [provider, range],
+  )
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useLiveReload(['expenses'], () => void load(true))
 
   const byCategory = useMemo(() => {
     const totals = new Map<ExpenseCategory, number>()

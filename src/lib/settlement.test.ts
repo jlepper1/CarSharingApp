@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { DateRange } from '../data/DataProvider'
-import type { Expense, ExpenseCategory, Profile, Trip } from '../data/types'
+import type { Expense, ExpenseCategory, Profile, SettlementPayment, Trip } from '../data/types'
 import {
   accruedCents,
+  carStats,
   computeSettlement,
   distributeCents,
   kmByUser,
+  kmByUserAndCar,
+  personBreakdown,
   settleUp,
 } from './settlement'
 
@@ -335,9 +338,36 @@ describe('shared trips', () => {
 describe('settleUp', () => {
   it('matches debtors against creditors with the fewest payments', () => {
     const transfers = settleUp([
-      { userId: 'a', displayName: 'A', distanceKm: 0, kmShare: 0, paidCents: 0, owesCents: 0, balanceCents: -1_000 },
-      { userId: 'b', displayName: 'B', distanceKm: 0, kmShare: 0, paidCents: 0, owesCents: 0, balanceCents: -500 },
-      { userId: 'c', displayName: 'C', distanceKm: 0, kmShare: 0, paidCents: 0, owesCents: 0, balanceCents: 1_500 },
+      {
+        userId: 'a',
+        displayName: 'A',
+        distanceKm: 0,
+        kmShare: 0,
+        paidCents: 0,
+        owesCents: 0,
+        settledCents: 0,
+        balanceCents: -1_000,
+      },
+      {
+        userId: 'b',
+        displayName: 'B',
+        distanceKm: 0,
+        kmShare: 0,
+        paidCents: 0,
+        owesCents: 0,
+        settledCents: 0,
+        balanceCents: -500,
+      },
+      {
+        userId: 'c',
+        displayName: 'C',
+        distanceKm: 0,
+        kmShare: 0,
+        paidCents: 0,
+        owesCents: 0,
+        settledCents: 0,
+        balanceCents: 1_500,
+      },
     ])
 
     expect(transfers).toHaveLength(2)
@@ -347,8 +377,165 @@ describe('settleUp', () => {
 
   it('produces no payments when everyone is square', () => {
     const transfers = settleUp([
-      { userId: 'a', displayName: 'A', distanceKm: 0, kmShare: 0, paidCents: 100, owesCents: 100, balanceCents: 0 },
+      {
+        userId: 'a',
+        displayName: 'A',
+        distanceKm: 0,
+        kmShare: 0,
+        paidCents: 100,
+        owesCents: 100,
+        settledCents: 0,
+        balanceCents: 0,
+      },
     ])
     expect(transfers).toEqual([])
+  })
+})
+
+function payment(
+  from: string,
+  to: string,
+  amountCents: number,
+  appliesOn = '2026-01-31',
+): SettlementPayment {
+  return {
+    id: `pay-${from}-${to}-${amountCents}`,
+    fromUserId: from,
+    toUserId: to,
+    amountCents,
+    appliesOn,
+    note: null,
+    createdBy: from,
+    createdAt: '2026-02-01T10:00:00Z',
+  }
+}
+
+describe('settlement payments', () => {
+  const base = { profiles, trips, expenses, rule: 'fixed_equal_variable_km' as const }
+
+  it('clears the balance once the transfer is marked as paid', () => {
+    const before = computeSettlement({ ...base, range: JANUARY })
+    const [transfer] = before.transfers
+    const after = computeSettlement({
+      ...base,
+      range: JANUARY,
+      payments: [payment(transfer.fromUserId, transfer.toUserId, transfer.amountCents)],
+    })
+    expect(after.people.every((p) => p.balanceCents === 0)).toBe(true)
+    expect(after.transfers).toEqual([])
+  })
+
+  it('leaves the rest open after a partial payment', () => {
+    const before = computeSettlement({ ...base, range: JANUARY })
+    const [transfer] = before.transfers
+    const after = computeSettlement({
+      ...base,
+      range: JANUARY,
+      payments: [payment(transfer.fromUserId, transfer.toUserId, 100)],
+    })
+    expect(after.transfers).toEqual([{ ...transfer, amountCents: transfer.amountCents - 100 }])
+    expect(after.people.reduce((a, p) => a + p.balanceCents, 0)).toBe(0)
+  })
+
+  it('counts a monthly payment in the yearly view, but not in other months', () => {
+    const paid = [payment(ANNA, BERND, 500, '2026-01-31')]
+    const year = computeSettlement({
+      ...base,
+      payments: paid,
+      range: { from: '2026-01-01', to: '2026-12-31' },
+    })
+    const february = computeSettlement({
+      ...base,
+      payments: paid,
+      range: { from: '2026-02-01', to: '2026-02-28' },
+    })
+    expect(year.people.find((p) => p.userId === ANNA)?.settledCents).toBe(500)
+    expect(february.people.find((p) => p.userId === ANNA)?.settledCents).toBe(0)
+  })
+})
+
+describe('personBreakdown', () => {
+  const result = computeSettlement({
+    profiles,
+    trips,
+    expenses: [
+      ...expenses,
+      expense(BERND, 'fuel', 5_000, { id: 'fuel-2' }),
+      expense(ANNA, 'repair', 3_000, { carId: null }),
+    ],
+    rule: 'fixed_equal_variable_km',
+    range: JANUARY,
+  })
+
+  it('adds up to exactly what the person owes', () => {
+    for (const person of result.people) {
+      const rows = personBreakdown(result, person.userId)
+      expect(rows.reduce((a, r) => a + r.shareCents, 0)).toBe(person.owesCents)
+    }
+  })
+
+  it('groups receipts of the same category and car into one row', () => {
+    const rows = personBreakdown(result, ANNA)
+    const fuel = rows.find((r) => r.category === 'fuel')
+    expect(fuel).toMatchObject({ count: 2, totalCents: 15_000, shareCents: 10_500, basis: 'km' })
+  })
+
+  it('marks a yearly bill of which only part falls in the period', () => {
+    const insurance = personBreakdown(result, ANNA).find((r) => r.category === 'insurance')
+    expect(insurance).toMatchObject({
+      partial: true,
+      basis: 'equal',
+      totalCents: INSURANCE_IN_JANUARY,
+    })
+  })
+
+  it('lists fixed costs before usage costs', () => {
+    const bases = personBreakdown(result, ANNA).map((r) => r.basis)
+    expect(bases.indexOf('km')).toBeGreaterThan(bases.lastIndexOf('equal'))
+  })
+})
+
+describe('kmByUserAndCar', () => {
+  it('splits each shared trip per car', () => {
+    const golf = { ...trip([ANNA, BERND], 100), carId: 'golf' }
+    const polo = { ...trip(ANNA, 40, '2026-01-11'), carId: 'polo' }
+    const km = kmByUserAndCar([golf, polo])
+    expect(km.get(ANNA)?.get('golf')).toBe(50)
+    expect(km.get(ANNA)?.get('polo')).toBe(40)
+    expect(km.get(BERND)?.get('polo')).toBeUndefined()
+  })
+})
+
+describe('carStats', () => {
+  const golfTrip = (from: number, to: number, day = '2026-01-10'): Trip => ({
+    ...trip(ANNA, to - from, day),
+    id: `golf-${from}`,
+    carId: 'golf',
+    odometerStart: from,
+    odometerEnd: to,
+  })
+
+  it('works out cost per km, consumption and unrecorded kilometres', () => {
+    const [golf] = carStats(
+      [golfTrip(1_000, 1_200), golfTrip(1_250, 1_400, '2026-01-20')],
+      [expense(ANNA, 'fuel', 7_000, { carId: 'golf', liters: 21 })],
+      JANUARY,
+    )
+    expect(golf.km).toBe(350)
+    expect(golf.centsPerKm).toBe(20)
+    expect(golf.litersPer100Km).toBeCloseTo(6)
+    expect(golf.gapKm).toBe(50)
+  })
+
+  it('does not divide by zero for a car that was not driven', () => {
+    const [golf] = carStats([], [expense(ANNA, 'tax', 1_000, { carId: 'golf' })], JANUARY)
+    expect(golf).toMatchObject({ km: 0, centsPerKm: null, litersPer100Km: null })
+  })
+
+  it('reports costs without a car separately', () => {
+    const stats = carStats([], [expense(ANNA, 'other', 900, { carId: null })], JANUARY)
+    expect(stats).toEqual([
+      expect.objectContaining({ carId: null, costCents: 900, centsPerKm: null }),
+    ])
   })
 })

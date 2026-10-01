@@ -11,11 +11,21 @@ import SettlementScreen from './SettlementScreen'
 const listTrips = vi.fn()
 const listExpenses = vi.fn()
 
+const provider = {
+  listTrips,
+  listExpenses,
+  listBookings: async () => [],
+  listPayments: async () => [],
+  subscribe: () => () => {},
+}
+const settings = { splitRule: 'fixed_equal_variable_km', currency: 'EUR' }
+
 vi.mock('../context/AppContext', () => ({
   useApp: () => ({
-    provider: { listTrips, listExpenses },
+    provider,
     profiles: [],
-    settings: { splitRule: 'fixed_equal_variable_km', currency: 'EUR' },
+    cars: [],
+    settings,
   }),
   useProfileLookup: () => () => null,
 }))

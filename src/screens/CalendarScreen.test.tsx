@@ -21,7 +21,13 @@ const ANNA: Profile = { id: 'user-anna', displayName: 'Anna', color: '#0f766e', 
 
 vi.mock('../context/AppContext', () => ({
   useApp: () => ({
-    provider: { listBookings, createBooking, deleteBooking: vi.fn(), updateBooking: vi.fn() },
+    provider: {
+      listBookings,
+      createBooking,
+      deleteBooking: vi.fn(),
+      updateBooking: vi.fn(),
+      subscribe: () => () => {},
+    },
     cars: CARS,
     user: { id: ANNA.id, email: 'anna@example.com' },
   }),

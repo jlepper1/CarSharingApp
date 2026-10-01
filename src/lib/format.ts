@@ -24,9 +24,7 @@ export function parseAmountToCents(input: string): number | null {
 
 /** Length of a reservation, e.g. "8 Std." or "2 Tage 4 Std.". */
 export function formatDuration(startsAt: string, endsAt: string): string {
-  const minutes = Math.round(
-    (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000,
-  )
+  const minutes = Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000)
   if (minutes <= 0) return '–'
 
   const days = Math.floor(minutes / 1440)
@@ -38,4 +36,23 @@ export function formatDuration(startsAt: string, endsAt: string): string {
   if (hours > 0) parts.push(`${hours} Std.`)
   if (rest > 0 && days === 0) parts.push(`${rest} Min.`)
   return parts.join(' ') || '0 Min.'
+}
+
+const twoDecimals = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+const oneDecimal = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+/** Cost per kilometre, e.g. "0,23 €/km"; "–" when nothing was driven. */
+export function formatEuroPerKm(centsPerKm: number | null): string {
+  return centsPerKm === null ? '–' : `${twoDecimals.format(centsPerKm / 100)} €/km`
+}
+
+/** Fuel consumption, e.g. "6,4 l/100 km". */
+export function formatConsumption(litersPer100Km: number | null): string {
+  return litersPer100Km === null ? '–' : `${oneDecimal.format(litersPer100Km)} l/100 km`
 }

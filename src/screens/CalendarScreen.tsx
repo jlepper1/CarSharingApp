@@ -14,6 +14,7 @@ import BookingDetail from '../components/BookingDetail'
 import MonthGrid from '../components/MonthGrid'
 import MonthPicker from '../components/MonthPicker'
 import { useApp, useProfileLookup } from '../context/AppContext'
+import { useLiveReload } from '../lib/useLiveReload'
 import type { Booking } from '../data/types'
 import {
   daySegment,
@@ -60,21 +61,27 @@ export default function CalendarScreen() {
     }
   }, [view, month])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setBookings(await provider.listBookings(range))
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [provider, range])
+  /** `quiet` keeps the list on screen during a live refresh. */
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setLoading(true)
+      setError(null)
+      try {
+        setBookings(await provider.listBookings(range))
+      } catch (err) {
+        setError((err as Error).message)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [provider, range],
+  )
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useLiveReload(['bookings'], () => void load(true))
 
   const visible = useMemo(
     () => (carFilter === 'all' ? bookings : bookings.filter((b) => b.carId === carFilter)),

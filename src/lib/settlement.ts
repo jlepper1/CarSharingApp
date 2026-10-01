@@ -1,5 +1,14 @@
 import type { DateRange } from '../data/DataProvider'
-import type { Expense, ISODate, Profile, SplitRule, Trip, UUID } from '../data/types'
+import type {
+  Expense,
+  ExpenseCategory,
+  ISODate,
+  Profile,
+  SettlementPayment,
+  SplitRule,
+  Trip,
+  UUID,
+} from '../data/types'
 import { isFixedCategory } from '../data/types'
 
 /**
@@ -103,7 +112,12 @@ export interface PersonSettlement {
   paidCents: number
   /** What this person's share of the costs comes to. */
   owesCents: number
-  /** paid minus owes. Positive means the others owe them money. */
+  /**
+   * Settlement payments already made: sent minus received. Paying a debt
+   * raises the balance of the payer and lowers the balance of the receiver.
+   */
+  settledCents: number
+  /** paid - owes + settled. Positive means the others owe them money. */
   balanceCents: number
 }
 
@@ -113,6 +127,15 @@ export interface Transfer {
   amountCents: number
 }
 
+/** How one expense was divided, so every figure can be traced to a receipt. */
+export interface SettlementLine {
+  expense: Expense
+  /** The part of the expense that falls into the period. */
+  accruedCents: number
+  basis: 'km' | 'equal'
+  sharesByUser: Map<UUID, number>
+}
+
 export interface SettlementResult {
   range: DateRange
   rule: SplitRule
@@ -120,12 +143,15 @@ export interface SettlementResult {
   totalKm: number
   people: PersonSettlement[]
   transfers: Transfer[]
+  lines: SettlementLine[]
 }
 
 export interface SettlementInput {
   profiles: Profile[]
   trips: Trip[]
   expenses: Expense[]
+  /** Settlement payments already made; only those inside the range count. */
+  payments?: SettlementPayment[]
   rule: SplitRule
   range: DateRange
 }
@@ -158,25 +184,46 @@ export function kmByUser(trips: Trip[]): Map<UUID, number> {
   return totals
 }
 
+/** Kilometres per person and car, for the "who drove which car" chart. */
+export function kmByUserAndCar(trips: Trip[]): Map<UUID, Map<UUID, number>> {
+  const totals = new Map<UUID, Map<UUID, number>>()
+  for (const trip of trips) {
+    const people = [...new Set(trip.participantIds)]
+    if (people.length === 0) continue
+    const share = trip.distanceKm / people.length
+    for (const id of people) {
+      const byCar = totals.get(id) ?? new Map<UUID, number>()
+      byCar.set(trip.carId, (byCar.get(trip.carId) ?? 0) + share)
+      totals.set(id, byCar)
+    }
+  }
+  return totals
+}
+
 export function computeSettlement(input: SettlementInput): SettlementResult {
   const { profiles, trips, expenses, rule, range } = input
 
   const tripsInRange = trips.filter((t) => isWithin(t.drivenOn, range))
+  const paymentsInRange = (input.payments ?? []).filter((p) => isWithin(p.appliesOn, range))
   const accrued = expenses
     .map((expense) => ({ expense, cents: accruedCents(expense, range) }))
     .filter((entry) => entry.cents !== 0)
   const driven = kmByUser(tripsInRange)
 
-  // Include every active member, plus anyone inactive who still drove or paid
-  // in this period - otherwise their money would silently vanish.
+  // Include every active member, plus anyone inactive who still drove, paid or
+  // was paid in this period - otherwise their money would silently vanish.
   const involved = new Set<UUID>()
   for (const profile of profiles) if (profile.active) involved.add(profile.id)
   for (const id of driven.keys()) involved.add(id)
   for (const { expense } of accrued) involved.add(expense.userId)
+  for (const payment of paymentsInRange) {
+    involved.add(payment.fromUserId)
+    involved.add(payment.toUserId)
+  }
 
   const members = profiles.filter((p) => involved.has(p.id))
   if (members.length === 0) {
-    return { range, rule, totalCents: 0, totalKm: 0, people: [], transfers: [] }
+    return { range, rule, totalCents: 0, totalKm: 0, people: [], transfers: [], lines: [] }
   }
 
   const kmWeights = members.map((m) => driven.get(m.id) ?? 0)
@@ -186,6 +233,8 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
 
   const paid = new Map<UUID, number>(members.map((m) => [m.id, 0]))
   const owes = new Map<UUID, number>(members.map((m) => [m.id, 0]))
+  const settled = new Map<UUID, number>(members.map((m) => [m.id, 0]))
+  const lines: SettlementLine[] = []
   let totalCents = 0
 
   for (const { expense, cents } of accrued) {
@@ -198,16 +247,28 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
       paid.set(expense.userId, paidSoFar + cents)
     }
 
-    const weights = splitsByKm(rule, expense) ? kmWeights : equalWeights
-    const shares = distributeCents(cents, weights)
+    const basis = splitsByKm(rule, expense) ? 'km' : 'equal'
+    const shares = distributeCents(cents, basis === 'km' ? kmWeights : equalWeights)
+    const sharesByUser = new Map<UUID, number>()
     members.forEach((member, index) => {
       owes.set(member.id, (owes.get(member.id) ?? 0) + shares[index])
+      sharesByUser.set(member.id, shares[index])
     })
+    lines.push({ expense, accruedCents: cents, basis, sharesByUser })
+  }
+
+  for (const payment of paymentsInRange) {
+    const from = settled.get(payment.fromUserId)
+    const to = settled.get(payment.toUserId)
+    if (from === undefined || to === undefined) continue
+    settled.set(payment.fromUserId, from + payment.amountCents)
+    settled.set(payment.toUserId, to - payment.amountCents)
   }
 
   const people: PersonSettlement[] = members.map((member) => {
     const paidCents = paid.get(member.id) ?? 0
     const owesCents = owes.get(member.id) ?? 0
+    const settledCents = settled.get(member.id) ?? 0
     const distanceKm = driven.get(member.id) ?? 0
     return {
       userId: member.id,
@@ -216,11 +277,126 @@ export function computeSettlement(input: SettlementInput): SettlementResult {
       kmShare: totalKm > 0 ? distanceKm / totalKm : 0,
       paidCents,
       owesCents,
-      balanceCents: paidCents - owesCents,
+      settledCents,
+      balanceCents: paidCents - owesCents + settledCents,
     }
   })
 
-  return { range, rule, totalCents, totalKm, people, transfers: settleUp(people) }
+  return { range, rule, totalCents, totalKm, people, transfers: settleUp(people), lines }
+}
+
+/** One row of a person's cost statement: an expense category for one car. */
+export interface BreakdownRow {
+  category: ExpenseCategory
+  carId: UUID | null
+  basis: 'km' | 'equal'
+  /** Everyone's cost in this group for the period. */
+  totalCents: number
+  /** This person's part of it. */
+  shareCents: number
+  /** Number of receipts behind the row. */
+  count: number
+  /** At least one receipt is a yearly bill of which only part falls in the period. */
+  partial: boolean
+}
+
+/**
+ * A person's cost statement: the settlement lines grouped by category and car,
+ * so a year with forty fuel receipts reads as one "Tanken · Golf" row. The
+ * shares add up to the person's `owesCents` exactly.
+ */
+export function personBreakdown(result: SettlementResult, userId: UUID): BreakdownRow[] {
+  const rows = new Map<string, BreakdownRow>()
+  for (const line of result.lines) {
+    const { expense } = line
+    const key = `${line.basis}|${expense.category}|${expense.carId ?? ''}`
+    const row = rows.get(key) ?? {
+      category: expense.category,
+      carId: expense.carId,
+      basis: line.basis,
+      totalCents: 0,
+      shareCents: 0,
+      count: 0,
+      partial: false,
+    }
+    row.totalCents += line.accruedCents
+    row.shareCents += line.sharesByUser.get(userId) ?? 0
+    row.count += 1
+    row.partial ||= line.accruedCents !== expense.amountCents
+    rows.set(key, row)
+  }
+  const order = (r: BreakdownRow) => CATEGORY_SORT.indexOf(r.category)
+  return [...rows.values()].sort(
+    (a, b) => a.basis.localeCompare(b.basis) || order(a) - order(b) || b.totalCents - a.totalCents,
+  )
+}
+
+const CATEGORY_SORT: ExpenseCategory[] = [
+  'insurance',
+  'tax',
+  'fuel',
+  'service',
+  'repair',
+  'tires',
+  'other',
+]
+
+/** Key figures for one car, or for costs not tied to a car (`carId` null). */
+export interface CarStats {
+  carId: UUID | null
+  km: number
+  costCents: number
+  /** Cost per kilometre in cents, or null when the car was not driven. */
+  centsPerKm: number | null
+  liters: number
+  /** Litres per 100 km, or null without both litres and kilometres. */
+  litersPer100Km: number | null
+  /** Kilometres between consecutive trips that nobody entered. */
+  gapKm: number
+}
+
+/**
+ * Cost per kilometre, fuel consumption and unrecorded kilometres per car.
+ *
+ * Gaps only look at trips inside the period, so a gap spanning the start of
+ * the period shows up in the earlier one.
+ */
+export function carStats(trips: Trip[], expenses: Expense[], range: DateRange): CarStats[] {
+  const tripsInRange = trips.filter((t) => isWithin(t.drivenOn, range))
+  const carIds = new Set<UUID | null>()
+  for (const trip of tripsInRange) carIds.add(trip.carId)
+  for (const expense of expenses) {
+    if (accruedCents(expense, range) !== 0) carIds.add(expense.carId)
+  }
+
+  return [...carIds].map((carId) => {
+    const carTrips = tripsInRange
+      .filter((t) => t.carId === carId)
+      .sort((a, b) => a.odometerStart - b.odometerStart)
+    const km = carTrips.reduce((sum, t) => sum + t.distanceKm, 0)
+
+    let gapKm = 0
+    for (let i = 1; i < carTrips.length; i++) {
+      const gap = carTrips[i].odometerStart - carTrips[i - 1].odometerEnd
+      if (gap > 0) gapKm += gap
+    }
+
+    const carExpenses = expenses.filter((e) => e.carId === carId)
+    const costCents = carExpenses.reduce((sum, e) => sum + accruedCents(e, range), 0)
+    const liters = carExpenses
+      .filter((e) => e.category === 'fuel' && e.liters && isWithin(e.incurredOn, range))
+      .reduce((sum, e) => sum + (e.liters ?? 0), 0)
+
+    return {
+      carId,
+      km,
+      costCents,
+      centsPerKm: carId !== null && km > 0 ? costCents / km : null,
+      liters,
+      litersPer100Km: km > 0 && liters > 0 ? (liters / km) * 100 : null,
+      gapKm,
+    }
+  })
 }
 
 /**

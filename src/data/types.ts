@@ -69,14 +69,24 @@ export interface Trip extends Audit {
   note: string | null
 }
 
+/**
+ * Money one family member transferred to another to settle up. It counts on
+ * `appliesOn`, the last day of the period it settles, so a yearly view
+ * includes the monthly payments.
+ */
+export interface SettlementPayment {
+  id: UUID
+  fromUserId: UUID
+  toUserId: UUID
+  amountCents: number
+  appliesOn: ISODate
+  note: string | null
+  createdBy: UUID | null
+  createdAt: ISODateTime
+}
+
 export type ExpenseCategory =
-  | 'fuel'
-  | 'insurance'
-  | 'tax'
-  | 'repair'
-  | 'service'
-  | 'tires'
-  | 'other'
+  'fuel' | 'insurance' | 'tax' | 'repair' | 'service' | 'tires' | 'other'
 
 export interface Expense extends Audit {
   id: UUID

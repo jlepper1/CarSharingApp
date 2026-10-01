@@ -5,6 +5,7 @@ import { useApp, useConfigError } from './context/AppContext'
 import CalendarScreen from './screens/CalendarScreen'
 import ExpensesScreen from './screens/ExpensesScreen'
 import LoginScreen from './screens/LoginScreen'
+import PersonSettlementScreen from './screens/PersonSettlementScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import SettlementScreen from './screens/SettlementScreen'
 import SetupScreen from './screens/SetupScreen'
@@ -30,6 +31,7 @@ function AuthenticatedApp() {
         <Route path="fahrten" element={<TripsScreen />} />
         <Route path="kosten" element={<ExpensesScreen />} />
         <Route path="abrechnung" element={<SettlementScreen />} />
+        <Route path="abrechnung/person/:userId" element={<PersonSettlementScreen />} />
         <Route path="einstellungen" element={<SettingsScreen />} />
         <Route path="*" element={<CalendarScreen />} />
       </Route>

@@ -12,6 +12,7 @@ import {
 } from '../components/ui'
 import { AuditNote, PersonPicker, Sheet, joinNames } from '../components/Sheet'
 import { useApp, useProfileLookup } from '../context/AppContext'
+import { useLiveReload } from '../lib/useLiveReload'
 import type { Trip, UUID } from '../data/types'
 import { formatDateISO, monthRange, todayISO } from '../lib/dates'
 import { formatKm } from '../lib/format'
@@ -31,21 +32,27 @@ export default function TripsScreen() {
 
   const range = useMemo(() => monthRange(month.getFullYear(), month.getMonth()), [month])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setTrips(await provider.listTrips(range))
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [provider, range])
+  /** `quiet` keeps the list on screen during a live refresh. */
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setLoading(true)
+      setError(null)
+      try {
+        setTrips(await provider.listTrips(range))
+      } catch (err) {
+        setError((err as Error).message)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [provider, range],
+  )
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useLiveReload(['trips'], () => void load(true))
 
   /** Kilometres per person for the visible month; shared trips are split. */
   const perPerson = useMemo(() => {

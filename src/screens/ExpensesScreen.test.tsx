@@ -86,7 +86,9 @@ describe('editing a cost', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { onSaved } = open(insurance)
     fireEvent.click(screen.getByRole('button', { name: 'Kosten für alle löschen' }))
-    expect(confirmSpy.mock.calls[0][0]).toMatch(/KFZ-Versicherung über 480,00\s€, bezahlt von Bernd/)
+    expect(confirmSpy.mock.calls[0][0]).toMatch(
+      /KFZ-Versicherung über 480,00\s€, bezahlt von Bernd/,
+    )
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(deleteExpense).toHaveBeenCalledWith('e1')
     confirmSpy.mockRestore()

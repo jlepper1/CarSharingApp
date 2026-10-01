@@ -6,6 +6,7 @@ import type {
   ISODate,
   Profile,
   Settings,
+  SettlementPayment,
   Trip,
   UUID,
 } from './types'
@@ -40,8 +41,7 @@ export type SaveFailureReason = 'conflict' | 'auth' | 'validation' | 'unknown'
  * best-effort. Either way the UI handles the same shape.
  */
 export type SaveResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; reason: SaveFailureReason; message: string }
+  { ok: true; value: T } | { ok: false; reason: SaveFailureReason; message: string }
 
 export type NewCar = Omit<Car, 'id'>
 // The database assigns the reference number and the audit trail, so callers
@@ -49,6 +49,11 @@ export type NewCar = Omit<Car, 'id'>
 export type NewBooking = Omit<Booking, 'id' | 'reference' | keyof Audit>
 export type NewTrip = Omit<Trip, 'id' | 'distanceKm' | keyof Audit>
 export type NewExpense = Omit<Expense, 'id' | keyof Audit>
+
+export type NewSettlementPayment = Omit<SettlementPayment, 'id' | 'createdBy' | 'createdAt'>
+
+/** Tables whose changes can be followed live. */
+export type LiveTable = 'bookings' | 'trips' | 'expenses' | 'settlement_payments'
 
 /** Outcome of leaving a trip: the last person out deletes it. */
 export type LeaveTripOutcome = 'left' | 'deleted' | 'not_participant'
@@ -99,4 +104,16 @@ export interface DataProvider {
   createExpense(expense: NewExpense): Promise<SaveResult<Expense>>
   updateExpense(id: UUID, patch: Partial<NewExpense>): Promise<SaveResult<Expense>>
   deleteExpense(id: UUID): Promise<SaveResult<void>>
+
+  // --- settlement payments ---
+  listPayments(range: DateRange): Promise<SettlementPayment[]>
+  createPayment(payment: NewSettlementPayment): Promise<SaveResult<SettlementPayment>>
+  deletePayment(id: UUID): Promise<SaveResult<void>>
+
+  // --- live updates ---
+  /**
+   * Call `onChange` whenever someone changes one of the tables. Returns an
+   * unsubscribe function.
+   */
+  subscribe(tables: LiveTable[], onChange: () => void): () => void
 }

@@ -26,7 +26,7 @@ export default function MonthPicker({
     <div className="mb-3 flex items-center gap-2">
       <Button
         variant="secondary"
-        className="px-3"
+        className="px-3 print:invisible"
         onClick={() => step(-1)}
         aria-label={yearly ? 'Vorheriges Jahr' : 'Vorheriger Monat'}
       >
@@ -37,7 +37,7 @@ export default function MonthPicker({
       </div>
       <Button
         variant="secondary"
-        className="px-3"
+        className="px-3 print:invisible"
         onClick={() => step(1)}
         aria-label={yearly ? 'Nächstes Jahr' : 'Nächster Monat'}
       >
