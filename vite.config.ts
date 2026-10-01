@@ -1,13 +1,37 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string
+}
+
+/** A git value for the version line, or a fallback when git is unavailable. */
+function git(command: string, fallback: string): string {
+  try {
+    const output = execSync(`git ${command}`, { stdio: ['ignore', 'pipe', 'ignore'] })
+    return output.toString().trim() || fallback
+  } catch {
+    return fallback
+  }
+}
 
 // On GitHub Pages the app is served from /CarSharingApp/, locally from /.
 const base = process.env.VITE_BASE ?? '/'
 
 export default defineConfig({
   base,
+  // Shown at the bottom of the "Mehr" screen.
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __GIT_HASH__: JSON.stringify(
+      git('rev-parse --short HEAD', process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'),
+    ),
+    __GIT_AUTHOR__: JSON.stringify(git('log -1 --format=%an', 'unbekannt')),
+  },
   plugins: [
     react(),
     tailwindcss(),

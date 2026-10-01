@@ -9,3 +9,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Injected at build time by vite.config.ts.
+declare const __APP_VERSION__: string
+declare const __GIT_HASH__: string
+declare const __GIT_AUTHOR__: string

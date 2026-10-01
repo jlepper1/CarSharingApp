@@ -8,6 +8,7 @@ import {
   Screen,
   Spinner,
 } from '../components/ui'
+import VersionFooter from '../components/VersionFooter'
 import { useApp } from '../context/AppContext'
 import {
   SPLIT_RULE_DESCRIPTIONS,
@@ -109,6 +110,8 @@ export default function SettingsScreen() {
       <Button variant="secondary" className="mt-6 w-full" onClick={() => void signOut()}>
         Abmelden
       </Button>
+
+      <VersionFooter />
     </Screen>
   )
 }
