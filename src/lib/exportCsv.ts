@@ -22,9 +22,17 @@ const BYTE_ORDER_MARK = String.fromCharCode(0xfeff)
 const euros = (cents: number) => decimal.format(cents / 100)
 const km = (value: number) => kmFormat.format(value)
 
-/** Quote a field when it contains a separator, a quote or a line break. */
+/** Amounts such as "-12,50" or "40 %" must stay numbers in Excel. */
+const NUMBER_LIKE = /^-?\d+(,\d+)?( %)?$/
+
+/**
+ * Quote a field when it contains a separator, a quote or a line break.
+ * Text that Excel would run as a formula (a note starting with "=", "+", "-"
+ * or "@") gets a leading apostrophe, so it is shown as plain text.
+ */
 export function csvCell(value: string | number): string {
-  const text = String(value)
+  let text = String(value)
+  if (/^[=+\-@\t\r]/.test(text) && !NUMBER_LIKE.test(text)) text = `'${text}`
   return /[;"\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 

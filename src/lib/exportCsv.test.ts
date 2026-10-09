@@ -48,6 +48,19 @@ describe('csvCell', () => {
     expect(csvCell('Ausflug; "Ostsee"')).toBe('"Ausflug; ""Ostsee"""')
     expect(csvCell('Golf')).toBe('Golf')
   })
+
+  it('keeps formulas from running in Excel', () => {
+    expect(csvCell('=HYPERLINK("http://x")')).toBe(`"'=HYPERLINK(""http://x"")"`)
+    expect(csvCell('+49 170')).toBe("'+49 170")
+    expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)")
+    expect(csvCell('- Reifen')).toBe("'- Reifen")
+  })
+
+  it('leaves negative amounts and percentages as numbers', () => {
+    expect(csvCell('-12,50')).toBe('-12,50')
+    expect(csvCell(-3)).toBe('-3')
+    expect(csvCell('40 %')).toBe('40 %')
+  })
 })
 
 describe('buildSettlementCsv', () => {
