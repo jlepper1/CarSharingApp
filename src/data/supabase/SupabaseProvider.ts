@@ -147,6 +147,8 @@ function toCar(row: Row): Car {
     name: row.name as string,
     licensePlate: (row.license_plate as string | null) ?? null,
     initialOdometer: row.initial_odometer as number,
+    // Missing until migration 0006 has been run; every car was a fuel car before.
+    driveType: row.drive_type === 'electric' ? 'electric' : 'fuel',
     active: row.active as boolean,
   }
 }
@@ -192,6 +194,7 @@ function toExpense(row: Row): Expense {
     periodStart: (row.period_start as string | null) ?? null,
     periodEnd: (row.period_end as string | null) ?? null,
     liters: row.liters === null || row.liters === undefined ? null : Number(row.liters),
+    kwh: row.kwh === null || row.kwh === undefined ? null : Number(row.kwh),
     note: (row.note as string | null) ?? null,
     receiptPath: (row.receipt_path as string | null) ?? null,
     ...toAudit(row),
@@ -243,6 +246,7 @@ function expenseToRow(expense: Partial<NewExpense>): Row {
   if (expense.periodStart !== undefined) row.period_start = expense.periodStart
   if (expense.periodEnd !== undefined) row.period_end = expense.periodEnd
   if (expense.liters !== undefined) row.liters = expense.liters
+  if (expense.kwh !== undefined) row.kwh = expense.kwh
   if (expense.note !== undefined) row.note = expense.note
   if (expense.receiptPath !== undefined) row.receipt_path = expense.receiptPath
   return row
@@ -311,6 +315,7 @@ export class SupabaseProvider implements DataProvider {
         name: car.name,
         license_plate: car.licensePlate,
         initial_odometer: car.initialOdometer,
+        drive_type: car.driveType,
         active: car.active,
       })
       .select()
@@ -324,6 +329,7 @@ export class SupabaseProvider implements DataProvider {
     if (patch.name !== undefined) row.name = patch.name
     if (patch.licensePlate !== undefined) row.license_plate = patch.licensePlate
     if (patch.initialOdometer !== undefined) row.initial_odometer = patch.initialOdometer
+    if (patch.driveType !== undefined) row.drive_type = patch.driveType
     if (patch.active !== undefined) row.active = patch.active
 
     const { data, error } = await this.client

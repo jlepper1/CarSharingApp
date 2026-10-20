@@ -56,3 +56,8 @@ export function formatEuroPerKm(centsPerKm: number | null): string {
 export function formatConsumption(litersPer100Km: number | null): string {
   return litersPer100Km === null ? '–' : `${oneDecimal.format(litersPer100Km)} l/100 km`
 }
+
+/** Electricity consumption, e.g. "16,8 kWh/100 km". */
+export function formatEnergyConsumption(kwhPer100Km: number | null): string {
+  return kwhPer100Km === null ? '–' : `${oneDecimal.format(kwhPer100Km)} kWh/100 km`
+}

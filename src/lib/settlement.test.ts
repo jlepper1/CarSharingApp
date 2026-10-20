@@ -63,6 +63,7 @@ function expense(
     periodStart: null,
     periodEnd: null,
     liters: null,
+    kwh: null,
     note: null,
     receiptPath: null,
     ...NO_AUDIT,
@@ -537,6 +538,184 @@ describe('carStats', () => {
     const stats = carStats([], [expense(ANNA, 'other', 900, { carId: null })], JANUARY)
     expect(stats).toEqual([
       expect.objectContaining({ carId: null, costCents: 900, centsPerKm: null }),
+    ])
+  })
+})
+
+describe('carStats for fuel and electric cars', () => {
+  const tripIn = (carId: string, from: number, to: number, day = '2026-01-10'): Trip => ({
+    ...trip(ANNA, to - from, day),
+    id: `${carId}-${from}`,
+    carId,
+    odometerStart: from,
+    odometerEnd: to,
+  })
+  const statsOf = (stats: ReturnType<typeof carStats>, carId: string) =>
+    stats.find((s) => s.carId === carId)!
+
+  it('gives a fuel car €/km and l/100 km, and no kWh figure', () => {
+    // 500 km on 30 l of fuel for 60 EUR: 6 l/100 km, 0,12 €/km.
+    const golf = statsOf(
+      carStats(
+        [tripIn('golf', 0, 500)],
+        [expense(ANNA, 'fuel', 6_000, { carId: 'golf', liters: 30 })],
+        JANUARY,
+      ),
+      'golf',
+    )
+    expect(golf.centsPerKm).toBe(12)
+    expect(golf.liters).toBe(30)
+    expect(golf.litersPer100Km).toBeCloseTo(6)
+    expect(golf).toMatchObject({ kwh: 0, kwhPer100Km: null })
+  })
+
+  it('gives an electric car €/km and kWh/100 km, and no litre figure', () => {
+    // 400 km on 72 kWh for 28,80 EUR: 18 kWh/100 km, 0,072 €/km.
+    const eup = statsOf(
+      carStats(
+        [tripIn('eup', 1_000, 1_400)],
+        [
+          expense(ANNA, 'charging', 1_800, { id: 'c1', carId: 'eup', kwh: 45 }),
+          expense(BERND, 'charging', 1_080, { id: 'c2', carId: 'eup', kwh: 27 }),
+        ],
+        JANUARY,
+      ),
+      'eup',
+    )
+    expect(eup.km).toBe(400)
+    expect(eup.costCents).toBe(2_880)
+    expect(eup.centsPerKm).toBeCloseTo(7.2)
+    expect(eup.kwh).toBe(72)
+    expect(eup.kwhPer100Km).toBeCloseTo(18)
+    expect(eup).toMatchObject({ liters: 0, litersPer100Km: null })
+  })
+
+  it('keeps fuel and electricity of two cars apart in the same period', () => {
+    const stats = carStats(
+      [tripIn('golf', 0, 200), tripIn('eup', 0, 100, '2026-01-12')],
+      [
+        expense(ANNA, 'fuel', 2_400, { id: 'f', carId: 'golf', liters: 12 }),
+        expense(BERND, 'charging', 600, { id: 'c', carId: 'eup', kwh: 16 }),
+      ],
+      JANUARY,
+    )
+    expect(statsOf(stats, 'golf')).toMatchObject({ liters: 12, kwh: 0, costCents: 2_400 })
+    expect(statsOf(stats, 'golf').litersPer100Km).toBeCloseTo(6)
+    expect(statsOf(stats, 'eup')).toMatchObject({ liters: 0, kwh: 16, costCents: 600 })
+    expect(statsOf(stats, 'eup').kwhPer100Km).toBeCloseTo(16)
+  })
+
+  it('counts other costs of an electric car in its €/km', () => {
+    const eup = statsOf(
+      carStats(
+        [tripIn('eup', 0, 1_000)],
+        [
+          expense(ANNA, 'charging', 5_000, { id: 'c', carId: 'eup', kwh: 170 }),
+          expense(BERND, 'repair', 5_000, { id: 'r', carId: 'eup' }),
+        ],
+        JANUARY,
+      ),
+      'eup',
+    )
+    expect(eup.centsPerKm).toBe(10)
+    expect(eup.kwhPer100Km).toBeCloseTo(17)
+  })
+
+  it('has no consumption for an electric car that was charged but not driven', () => {
+    const eup = statsOf(
+      carStats([], [expense(ANNA, 'charging', 1_000, { carId: 'eup', kwh: 30 })], JANUARY),
+      'eup',
+    )
+    expect(eup).toMatchObject({ km: 0, kwh: 30, kwhPer100Km: null, centsPerKm: null })
+  })
+
+  it('has no consumption when the kWh were not entered', () => {
+    const eup = statsOf(
+      carStats(
+        [tripIn('eup', 0, 300)],
+        [expense(ANNA, 'charging', 1_500, { carId: 'eup' })],
+        JANUARY,
+      ),
+      'eup',
+    )
+    expect(eup.kwhPer100Km).toBeNull()
+    expect(eup.centsPerKm).toBe(5)
+  })
+
+  it('ignores a charge outside the period', () => {
+    const eup = statsOf(
+      carStats(
+        [tripIn('eup', 0, 100)],
+        [
+          expense(ANNA, 'charging', 500, { id: 'jan', carId: 'eup', kwh: 15 }),
+          expense(ANNA, 'charging', 500, {
+            id: 'feb',
+            carId: 'eup',
+            kwh: 40,
+            incurredOn: '2026-02-02',
+          }),
+        ],
+        JANUARY,
+      ),
+      'eup',
+    )
+    expect(eup.kwh).toBe(15)
+    expect(eup.kwhPer100Km).toBeCloseTo(15)
+  })
+})
+
+describe('charging in the settlement', () => {
+  it('is split by kilometres, like fuel', () => {
+    // Anna 700 km, Bernd 300 km; Bernd pays 30 EUR for electricity.
+    const result = computeSettlement({
+      profiles,
+      trips,
+      expenses: [expense(BERND, 'charging', 3_000, { kwh: 80 })],
+      rule: 'fixed_equal_variable_km',
+      range: JANUARY,
+    })
+    expect(result.lines[0].basis).toBe('km')
+    const anna = result.people.find((p) => p.userId === ANNA)!
+    expect(anna.owesCents).toBe(2_100)
+    expect(anna.balanceCents).toBe(-2_100)
+    expect(result.transfers).toEqual([
+      { fromUserId: ANNA, toUserId: BERND, amountCents: 2_100 },
+    ])
+  })
+
+  it('is split equally under the all-equal rule', () => {
+    const result = computeSettlement({
+      profiles,
+      trips,
+      expenses: [expense(BERND, 'charging', 3_000)],
+      rule: 'all_equal',
+      range: JANUARY,
+    })
+    expect(result.people.map((p) => p.owesCents)).toEqual([1_500, 1_500])
+  })
+
+  it('lists charging right after fuel in the cost summary and the statement', () => {
+    const all = [
+      expense(ANNA, 'repair', 1_000, { id: 'r' }),
+      expense(ANNA, 'charging', 2_000, { id: 'c' }),
+      expense(ANNA, 'fuel', 3_000, { id: 'f' }),
+    ]
+    expect(costSummary(all, JANUARY).map((r) => r.category)).toEqual([
+      'fuel',
+      'charging',
+      'repair',
+    ])
+    const result = computeSettlement({
+      profiles,
+      trips,
+      expenses: all,
+      rule: 'all_by_km',
+      range: JANUARY,
+    })
+    expect(personBreakdown(result, ANNA).map((r) => r.category)).toEqual([
+      'fuel',
+      'charging',
+      'repair',
     ])
   })
 })

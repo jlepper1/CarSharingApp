@@ -196,7 +196,9 @@ export function TripDialog({
   const { provider, cars, user, profiles } = useApp()
   const lookup = useProfileLookup()
 
-  const [carId, setCarId] = useState(trip?.carId ?? cars[0]?.id ?? '')
+  // A disabled (sold) car is not driven anymore; an old trip keeps its car.
+  const carChoices = cars.filter((car) => car.active || car.id === trip?.carId)
+  const [carId, setCarId] = useState(trip?.carId ?? carChoices[0]?.id ?? '')
   const [drivenOn, setDrivenOn] = useState(trip?.drivenOn ?? todayISO())
   const [participantIds, setParticipantIds] = useState<UUID[]>(
     trip?.participantIds ?? (user ? [user.id] : []),
@@ -325,9 +327,13 @@ export function TripDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         <ErrorBanner message={error} />
 
+        {carChoices.length === 0 ? (
+          <p className="text-sm text-slate-600">Kein aktives Auto. Das geht unter „Mehr“.</p>
+        ) : null}
+
         <Field label="Auto">
           <Select value={carId} onChange={(e) => setCarId(e.target.value)} required>
-            {cars.map((car) => (
+            {carChoices.map((car) => (
               <option key={car.id} value={car.id}>
                 {car.name}
               </option>

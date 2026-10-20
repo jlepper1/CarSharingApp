@@ -331,6 +331,7 @@ export function costSummary(expenses: Expense[], range: DateRange): CostSummaryR
 
 const SUMMARY_ORDER: ExpenseCategory[] = [
   'fuel',
+  'charging',
   'insurance',
   'tax',
   'repair',
@@ -389,6 +390,7 @@ const CATEGORY_SORT: ExpenseCategory[] = [
   'insurance',
   'tax',
   'fuel',
+  'charging',
   'service',
   'repair',
   'tires',
@@ -405,6 +407,10 @@ export interface CarStats {
   liters: number
   /** Litres per 100 km, or null without both litres and kilometres. */
   litersPer100Km: number | null
+  /** Kilowatt hours charged, for electric cars. */
+  kwh: number
+  /** kWh per 100 km, or null without both kWh and kilometres. */
+  kwhPer100Km: number | null
   /** Kilometres between consecutive trips that nobody entered. */
   gapKm: number
 }
@@ -440,6 +446,9 @@ export function carStats(trips: Trip[], expenses: Expense[], range: DateRange): 
     const liters = carExpenses
       .filter((e) => e.category === 'fuel' && e.liters && isWithin(e.incurredOn, range))
       .reduce((sum, e) => sum + (e.liters ?? 0), 0)
+    const kwh = carExpenses
+      .filter((e) => e.category === 'charging' && e.kwh && isWithin(e.incurredOn, range))
+      .reduce((sum, e) => sum + (e.kwh ?? 0), 0)
 
     return {
       carId,
@@ -448,6 +457,8 @@ export function carStats(trips: Trip[], expenses: Expense[], range: DateRange): 
       centsPerKm: carId !== null && km > 0 ? costCents / km : null,
       liters,
       litersPer100Km: km > 0 && liters > 0 ? (liters / km) * 100 : null,
+      kwh,
+      kwhPer100Km: km > 0 && kwh > 0 ? (kwh / km) * 100 : null,
       gapKm,
     }
   })

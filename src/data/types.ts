@@ -20,12 +20,20 @@ export interface Profile {
   active: boolean
 }
 
+/** A car either burns fuel or is fully electric; hybrids count as fuel. */
+export type DriveType = 'fuel' | 'electric'
+
 export interface Car {
   id: UUID
   name: string
   licensePlate: string | null
   /** Odometer reading when the car was added, in km. */
   initialOdometer: number
+  driveType: DriveType
+  /**
+   * False once the car is sold or retired: it can no longer be reserved or
+   * driven, but its history and late costs stay in the settlement.
+   */
   active: boolean
 }
 
@@ -86,7 +94,7 @@ export interface SettlementPayment {
 }
 
 export type ExpenseCategory =
-  'fuel' | 'insurance' | 'tax' | 'repair' | 'service' | 'tires' | 'other'
+  'fuel' | 'charging' | 'insurance' | 'tax' | 'repair' | 'service' | 'tires' | 'other'
 
 export interface Expense extends Audit {
   id: UUID
@@ -106,6 +114,8 @@ export interface Expense extends Audit {
   periodEnd: ISODate | null
   /** Litres filled, for fuel expenses only. */
   liters: number | null
+  /** Kilowatt hours charged, for charging expenses only. */
+  kwh: number | null
   note: string | null
   receiptPath: string | null
 }
@@ -134,12 +144,27 @@ export function isFixedCategory(category: ExpenseCategory): boolean {
 
 export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   fuel: 'Tanken',
+  charging: 'Laden (Strom)',
   insurance: 'KFZ-Versicherung',
   tax: 'KFZ-Steuer',
   repair: 'Reparatur',
   service: 'Wartung',
   tires: 'Reifen',
   other: 'Sonstiges',
+}
+
+/** The energy cost category that matches how a car is driven. */
+export function energyCategory(driveType: DriveType): 'fuel' | 'charging' {
+  return driveType === 'electric' ? 'charging' : 'fuel'
+}
+
+export function isEnergyCategory(category: ExpenseCategory): boolean {
+  return category === 'fuel' || category === 'charging'
+}
+
+export const DRIVE_TYPE_LABELS: Record<DriveType, string> = {
+  fuel: 'Verbrenner (Kraftstoff)',
+  electric: 'Elektro',
 }
 
 export const SPLIT_RULE_LABELS: Record<SplitRule, string> = {
@@ -150,7 +175,7 @@ export const SPLIT_RULE_LABELS: Record<SplitRule, string> = {
 
 export const SPLIT_RULE_DESCRIPTIONS: Record<SplitRule, string> = {
   fixed_equal_variable_km:
-    'Versicherung und Steuer werden gleichmäßig auf alle verteilt. Sprit, Reparaturen, Wartung und Reifen nach dem Anteil an den gefahrenen Kilometern.',
+    'Versicherung und Steuer werden gleichmäßig auf alle verteilt. Sprit, Strom, Reparaturen, Wartung und Reifen nach dem Anteil an den gefahrenen Kilometern.',
   all_by_km:
     'Alle Kosten werden nach dem Anteil an den gefahrenen Kilometern verteilt. Wer mehr fährt, zahlt mehr.',
   all_equal:

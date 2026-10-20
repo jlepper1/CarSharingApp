@@ -93,6 +93,11 @@ export default function CalendarScreen() {
     [lookup],
   )
 
+  // A sold car only gets a filter while it still has reservations on screen.
+  const filterCars = cars.filter(
+    (car) => car.active || car.id === carFilter || bookings.some((b) => b.carId === car.id),
+  )
+
   /** The detail sheet saves and deletes itself; we only refresh afterwards. */
   function handleBookingChanged() {
     setDetail(null)
@@ -119,12 +124,12 @@ export default function CalendarScreen() {
         </ViewTab>
       </div>
 
-      {cars.length > 1 ? (
+      {filterCars.length > 1 ? (
         <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
           <FilterChip active={carFilter === 'all'} onClick={() => setCarFilter('all')}>
             Alle Autos
           </FilterChip>
-          {cars.map((car) => (
+          {filterCars.map((car) => (
             <FilterChip
               key={car.id}
               active={carFilter === car.id}
@@ -428,7 +433,9 @@ function BookingDialog({
     return { start: toDateTimeLocal(start), end: toDateTimeLocal(end) }
   }, [day])
 
-  const [carId, setCarId] = useState(cars[0]?.id ?? '')
+  // A disabled (sold) car cannot be reserved anymore.
+  const activeCars = cars.filter((car) => car.active)
+  const [carId, setCarId] = useState(activeCars[0]?.id ?? '')
   const [startsAt, setStartsAt] = useState(defaults.start)
   const [endsAt, setEndsAt] = useState(defaults.end)
   const [purpose, setPurpose] = useState('')
@@ -476,13 +483,16 @@ function BookingDialog({
         <h2 className="text-lg font-semibold text-slate-900">Auto reservieren</h2>
         <ErrorBanner message={error} />
 
-        {cars.length === 0 ? (
-          <p className="text-sm text-slate-600">Noch kein Auto angelegt. Das geht unter „Mehr“.</p>
+        {activeCars.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            {cars.length === 0 ? 'Noch kein Auto angelegt.' : 'Kein aktives Auto.'} Das geht unter
+            „Mehr“.
+          </p>
         ) : (
           <>
             <Field label="Auto">
               <Select value={carId} onChange={(e) => setCarId(e.target.value)} required>
-                {cars.map((car) => (
+                {activeCars.map((car) => (
                   <option key={car.id} value={car.id}>
                     {car.name}
                   </option>
@@ -518,7 +528,7 @@ function BookingDialog({
           <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
             Abbrechen
           </Button>
-          <Button type="submit" className="flex-1" disabled={busy || cars.length === 0}>
+          <Button type="submit" className="flex-1" disabled={busy || activeCars.length === 0}>
             {busy ? 'Speichern …' : 'Reservieren'}
           </Button>
         </div>

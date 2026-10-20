@@ -20,6 +20,7 @@ import { buildSettlementCsv, downloadCsv } from '../lib/exportCsv'
 import {
   formatCents,
   formatConsumption,
+  formatEnergyConsumption,
   formatEuroPerKm,
   formatKm,
   formatPercent,
@@ -154,28 +155,44 @@ export default function SettlementScreen() {
               <h2 className="mb-2 mt-4 text-sm font-semibold text-slate-700">Je Auto</h2>
               <Card className="mb-3">
                 <ul className="divide-y divide-slate-100">
-                  {stats.map((s) => (
-                    <li key={s.carId ?? 'none'} className="py-2 first:pt-0 last:pb-0">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-slate-800">{carName(s.carId)}</span>
-                        <span className="tabular-nums text-slate-900">
-                          {formatCents(s.costCents)}
-                        </span>
-                      </div>
-                      {s.carId !== null ? (
-                        <div className="mt-0.5 text-xs tabular-nums text-slate-500">
-                          {formatKm(s.km)} · {formatEuroPerKm(s.centsPerKm)}
-                          {s.litersPer100Km !== null
-                            ? ` · ${formatConsumption(s.litersPer100Km)}`
-                            : ''}
+                  {stats.map((s) => {
+                    const car = cars.find((c) => c.id === s.carId)
+                    const electric = car?.driveType === 'electric'
+                    return (
+                      <li key={s.carId ?? 'none'} className="py-2 first:pt-0 last:pb-0">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium text-slate-800">
+                            {carName(s.carId)}
+                            {electric ? (
+                              <span className="ml-1 text-xs font-normal text-slate-500">
+                                Elektro
+                              </span>
+                            ) : null}
+                            {car && !car.active ? (
+                              <span className="ml-1 text-xs font-normal text-slate-400">
+                                (inaktiv)
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="tabular-nums text-slate-900">
+                            {formatCents(s.costCents)}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="mt-0.5 text-xs text-slate-500">
-                          Kosten, die keinem Auto zugeordnet sind
-                        </div>
-                      )}
-                    </li>
-                  ))}
+                        {s.carId !== null ? (
+                          <div className="mt-0.5 text-xs tabular-nums text-slate-500">
+                            {formatKm(s.km)} · {formatEuroPerKm(s.centsPerKm)} ·{' '}
+                            {electric
+                              ? formatEnergyConsumption(s.kwhPer100Km)
+                              : formatConsumption(s.litersPer100Km)}
+                          </div>
+                        ) : (
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            Kosten, die keinem Auto zugeordnet sind
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               </Card>
             </>

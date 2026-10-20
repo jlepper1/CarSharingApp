@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatCents, formatDuration, parseAmountToCents } from './format'
+import {
+  formatCents,
+  formatConsumption,
+  formatDuration,
+  formatEnergyConsumption,
+  formatEuroPerKm,
+  parseAmountToCents,
+} from './format'
 
 describe('parseAmountToCents', () => {
   it('accepts the German comma', () => {
@@ -81,5 +88,22 @@ describe('formatDuration', () => {
   it('marks a range that does not move forward', () => {
     expect(formatDuration(at(17), at(9))).toBe('–')
     expect(formatDuration(at(9), at(9))).toBe('–')
+  })
+})
+
+describe('car figures', () => {
+  it('shows cost per kilometre in euros', () => {
+    expect(formatEuroPerKm(7.2)).toBe('0,07 €/km')
+    expect(formatEuroPerKm(null)).toBe('–')
+  })
+
+  it('shows fuel consumption in litres per 100 km', () => {
+    expect(formatConsumption(6.04)).toBe('6,0 l/100 km')
+    expect(formatConsumption(null)).toBe('–')
+  })
+
+  it('shows electricity consumption in kWh per 100 km', () => {
+    expect(formatEnergyConsumption(16.84)).toBe('16,8 kWh/100 km')
+    expect(formatEnergyConsumption(null)).toBe('–')
   })
 })

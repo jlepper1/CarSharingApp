@@ -14,13 +14,21 @@ import { AuditNote, Sheet } from '../components/Sheet'
 import MonthPicker from '../components/MonthPicker'
 import { useApp, useProfileLookup } from '../context/AppContext'
 import { useLiveReload } from '../lib/useLiveReload'
-import { CATEGORY_LABELS, type Expense, type ExpenseCategory } from '../data/types'
+import {
+  CATEGORY_LABELS,
+  energyCategory,
+  isEnergyCategory,
+  type Car,
+  type Expense,
+  type ExpenseCategory,
+} from '../data/types'
 import { formatDateISO, formatMonth, formatPeriod, monthRange, todayISO } from '../lib/dates'
 import { formatCents, parseAmountToCents } from '../lib/format'
 import { accruedCents, costSummary } from '../lib/settlement'
 
 const CATEGORY_ORDER: ExpenseCategory[] = [
   'fuel',
+  'charging',
   'insurance',
   'tax',
   'repair',
@@ -143,7 +151,8 @@ export default function ExpensesScreen() {
                               {formatDateISO(expense.incurredOn)} · bezahlt von{' '}
                               {person?.displayName ?? 'Unbekannt'}
                               {car ? ` · ${car.name}` : ''}
-                              {expense.liters ? ` · ${expense.liters} l` : ''}
+                              {expense.liters ? ` · ${formatQuantity(expense.liters)} l` : ''}
+                              {expense.kwh ? ` · ${formatQuantity(expense.kwh)} kWh` : ''}
                             </div>
                             {expense.periodStart && expense.periodEnd ? (
                               <div className="mt-0.5 text-xs text-brand-700">
@@ -189,6 +198,18 @@ function suggestsSpread(category: ExpenseCategory): boolean {
   return category === 'insurance' || category === 'tax'
 }
 
+/** A litre or kWh figure with a German decimal comma, e.g. "38,4". */
+function formatQuantity(value: number): string {
+  return String(value).replace('.', ',')
+}
+
+/** "Tanken" makes no sense for an electric car, nor "Laden" for a fuel car. */
+function categoriesFor(car: Car | undefined): ExpenseCategory[] {
+  if (!car) return CATEGORY_ORDER
+  const wrongEnergy = car.driveType === 'electric' ? 'fuel' : 'charging'
+  return CATEGORY_ORDER.filter((c) => c !== wrongEnergy)
+}
+
 /** Adds a cost, or edits one when `expense` is given. */
 export function ExpenseDialog({
   expense,
@@ -203,13 +224,17 @@ export function ExpenseDialog({
   const { provider, cars, user, profiles } = useApp()
   const lookup = useProfileLookup()
 
+  // Late bills for a sold car are still possible, so every car is offered, but
+  // a new cost defaults to a car that is still in use.
+  const defaultCar = cars.find((c) => c.active) ?? cars[0]
   const initial = {
-    category: expense?.category ?? ('fuel' as ExpenseCategory),
+    category: expense?.category ?? (defaultCar ? energyCategory(defaultCar.driveType) : 'fuel'),
     payerId: expense?.userId ?? user?.id ?? '',
     amount: expense ? (expense.amountCents / 100).toFixed(2).replace('.', ',') : '',
     incurredOn: expense?.incurredOn ?? todayISO(),
-    carId: expense ? (expense.carId ?? '') : (cars[0]?.id ?? ''),
-    liters: expense?.liters ? String(expense.liters).replace('.', ',') : '',
+    carId: expense ? (expense.carId ?? '') : (defaultCar?.id ?? ''),
+    liters: expense?.liters ? formatQuantity(expense.liters) : '',
+    kwh: expense?.kwh ? formatQuantity(expense.kwh) : '',
     spread: expense ? expense.periodStart !== null : suggestsSpread('fuel'),
     periodStart: expense?.periodStart ?? todayISO(),
     periodEnd: expense?.periodEnd ?? `${new Date().getFullYear()}-12-31`,
@@ -222,6 +247,7 @@ export function ExpenseDialog({
   const [incurredOn, setIncurredOn] = useState(initial.incurredOn)
   const [carId, setCarId] = useState(initial.carId)
   const [liters, setLiters] = useState(initial.liters)
+  const [kwh, setKwh] = useState(initial.kwh)
   const [spread, setSpread] = useState(initial.spread)
   const [periodStart, setPeriodStart] = useState(initial.periodStart)
   const [periodEnd, setPeriodEnd] = useState(initial.periodEnd)
@@ -238,6 +264,18 @@ export function ExpenseDialog({
     setSpread(suggestsSpread(next))
   }
 
+  /** Switching between a fuel and an electric car switches Tanken and Laden too. */
+  function handleCarChange(nextId: string) {
+    setCarId(nextId)
+    const next = cars.find((c) => c.id === nextId)
+    if (next && isEnergyCategory(category)) setCategory(energyCategory(next.driveType))
+  }
+
+  const selectedCar = cars.find((c) => c.id === carId)
+  // Keep a saved category visible even if it no longer matches the car.
+  const allowed = categoriesFor(selectedCar)
+  const categoryOptions = CATEGORY_ORDER.filter((c) => c === category || allowed.includes(c))
+
   const changed =
     category !== initial.category ||
     payerId !== initial.payerId ||
@@ -245,6 +283,7 @@ export function ExpenseDialog({
     incurredOn !== initial.incurredOn ||
     carId !== initial.carId ||
     liters !== initial.liters ||
+    kwh !== initial.kwh ||
     spread !== initial.spread ||
     (spread && (periodStart !== initial.periodStart || periodEnd !== initial.periodEnd)) ||
     note !== initial.note
@@ -275,6 +314,7 @@ export function ExpenseDialog({
       periodStart: spread ? periodStart : null,
       periodEnd: spread ? periodEnd : null,
       liters: category === 'fuel' && liters ? Number(liters.replace(',', '.')) : null,
+      kwh: category === 'charging' && kwh ? Number(kwh.replace(',', '.')) : null,
       note: note.trim() || null,
     }
 
@@ -319,7 +359,7 @@ export function ExpenseDialog({
             onChange={(e) => handleCategoryChange(e.target.value as ExpenseCategory)}
             required
           >
-            {CATEGORY_ORDER.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>
                 {CATEGORY_LABELS[c]}
               </option>
@@ -359,11 +399,13 @@ export function ExpenseDialog({
         </Field>
 
         <Field label="Auto">
-          <Select value={carId} onChange={(e) => setCarId(e.target.value)}>
+          <Select value={carId} onChange={(e) => handleCarChange(e.target.value)}>
             <option value="">Kein bestimmtes Auto</option>
             {cars.map((car) => (
               <option key={car.id} value={car.id}>
                 {car.name}
+                {car.driveType === 'electric' ? ' (Elektro)' : ''}
+                {car.active ? '' : ' (inaktiv)'}
               </option>
             ))}
           </Select>
@@ -376,6 +418,17 @@ export function ExpenseDialog({
               placeholder="42,5"
               value={liters}
               onChange={(e) => setLiters(e.target.value)}
+            />
+          </Field>
+        ) : null}
+
+        {category === 'charging' ? (
+          <Field label="kWh" hint="Optional, für den Verbrauch">
+            <Input
+              inputMode="decimal"
+              placeholder="38,4"
+              value={kwh}
+              onChange={(e) => setKwh(e.target.value)}
             />
           </Field>
         ) : null}

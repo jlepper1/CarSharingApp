@@ -14,7 +14,14 @@ const ANNA: Profile = { id: 'user-anna', displayName: 'Anna', color: '#0f766e', 
 const BERND: Profile = { id: 'user-bernd', displayName: 'Bernd', color: '#b45309', active: true }
 const PEOPLE = [ANNA, BERND]
 const CARS: Car[] = [
-  { id: 'golf', name: 'Golf', licensePlate: null, initialOdometer: 0, active: true },
+  {
+    id: 'golf',
+    name: 'Golf',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
 ]
 const AUDIT = { createdBy: null, updatedBy: null, updatedAt: null }
 
@@ -56,6 +63,7 @@ const expense = (extra: Partial<Expense>): Expense => ({
   periodStart: null,
   periodEnd: null,
   liters: null,
+  kwh: null,
   note: null,
   receiptPath: null,
   ...extra,

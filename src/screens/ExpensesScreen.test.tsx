@@ -10,7 +10,30 @@ const updateExpense = vi.fn()
 const deleteExpense = vi.fn()
 
 const CARS: Car[] = [
-  { id: 'car-1', name: 'VW Golf', licensePlate: null, initialOdometer: 0, active: true },
+  {
+    id: 'car-1',
+    name: 'VW Golf',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
+  {
+    id: 'car-e',
+    name: 'VW e-Up',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'electric',
+    active: true,
+  },
+  {
+    id: 'car-old',
+    name: 'Passat',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: false,
+  },
 ]
 const ANNA: Profile = { id: 'user-anna', displayName: 'Anna', color: '#0f766e', active: true }
 const BERND: Profile = { id: 'user-bernd', displayName: 'Bernd', color: '#b45309', active: true }
@@ -35,6 +58,7 @@ const insurance: Expense = {
   periodStart: '2026-01-01',
   periodEnd: '2026-12-31',
   liters: null,
+  kwh: null,
   note: 'HUK',
   receiptPath: null,
   createdBy: BERND.id,
@@ -113,6 +137,124 @@ describe('adding a cost', () => {
     expect(field(/Über einen Zeitraum/).checked).toBe(false)
     fireEvent.change(field(/^Art/), { target: { value: 'tax' } })
     expect(field(/Über einen Zeitraum/).checked).toBe(true)
+  })
+})
+
+describe('fuel and electric cars', () => {
+  const categoryOptions = () =>
+    Array.from(field(/^Art/).querySelectorAll('option')).map((o) => o.textContent)
+
+  it('asks for litres when a fuel car is filled up', async () => {
+    const { onSaved } = open()
+    expect(field(/^Auto/).value).toBe('car-1')
+    expect(field(/^Art/).value).toBe('fuel')
+    expect(categoryOptions()).toContain('Tanken')
+    expect(categoryOptions()).not.toContain('Laden (Strom)')
+    expect(screen.queryByLabelText(/kWh/)).toBeNull()
+
+    fireEvent.change(field(/Betrag/), { target: { value: '70,00' } })
+    fireEvent.change(field(/^Liter/), { target: { value: '42,5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(createExpense).toHaveBeenCalledWith(
+      expect.objectContaining({
+        carId: 'car-1',
+        category: 'fuel',
+        amountCents: 7_000,
+        liters: 42.5,
+        kwh: null,
+      }),
+    )
+  })
+
+  it('asks for kWh when an electric car is charged', async () => {
+    const { onSaved } = open()
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-e' } })
+    expect(field(/^Art/).value).toBe('charging')
+    expect(categoryOptions()).toContain('Laden (Strom)')
+    expect(categoryOptions()).not.toContain('Tanken')
+    expect(screen.queryByLabelText(/^Liter/)).toBeNull()
+
+    fireEvent.change(field(/Betrag/), { target: { value: '15,36' } })
+    fireEvent.change(field(/^kWh/), { target: { value: '38,4' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(createExpense).toHaveBeenCalledWith(
+      expect.objectContaining({
+        carId: 'car-e',
+        category: 'charging',
+        amountCents: 1_536,
+        kwh: 38.4,
+        liters: null,
+      }),
+    )
+  })
+
+  it('switches back to Tanken when a fuel car is picked again', () => {
+    open()
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-e' } })
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-1' } })
+    expect(field(/^Art/).value).toBe('fuel')
+    expect(field(/^Liter/)).toBeInTheDocument()
+  })
+
+  it('leaves other categories alone when the car changes', () => {
+    open()
+    fireEvent.change(field(/^Art/), { target: { value: 'repair' } })
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-e' } })
+    expect(field(/^Art/).value).toBe('repair')
+  })
+
+  it('offers both Tanken and Laden for costs not tied to a car', () => {
+    open()
+    fireEvent.change(field(/^Auto/), { target: { value: '' } })
+    expect(categoryOptions()).toEqual(expect.arrayContaining(['Tanken', 'Laden (Strom)']))
+  })
+
+  it('does not keep litres typed before switching to an electric car', async () => {
+    const { onSaved } = open()
+    fireEvent.change(field(/^Liter/), { target: { value: '40' } })
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-e' } })
+    fireEvent.change(field(/Betrag/), { target: { value: '12,00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(createExpense).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'charging', liters: null, kwh: null }),
+    )
+  })
+
+  it('prefills the kWh of a saved charge', () => {
+    open({
+      ...insurance,
+      carId: 'car-e',
+      category: 'charging',
+      periodStart: null,
+      periodEnd: null,
+      kwh: 38.4,
+    })
+    expect(field(/^Art/).value).toBe('charging')
+    expect(field(/^kWh/).value).toBe('38,4')
+  })
+})
+
+describe('a disabled car', () => {
+  it('can still get late costs, but is not the default', () => {
+    open()
+    const option = screen.getByRole('option', { name: /Passat/ }) as HTMLOptionElement
+    expect(option.textContent).toContain('(inaktiv)')
+    expect(field(/^Auto/).value).toBe('car-1')
+  })
+
+  it('takes a final tax bill', async () => {
+    const { onSaved } = open()
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-old' } })
+    fireEvent.change(field(/^Art/), { target: { value: 'tax' } })
+    fireEvent.change(field(/Betrag/), { target: { value: '80,00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(createExpense).toHaveBeenCalledWith(
+      expect.objectContaining({ carId: 'car-old', category: 'tax' }),
+    )
   })
 })
 

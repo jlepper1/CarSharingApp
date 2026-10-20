@@ -12,8 +12,30 @@ const updateBooking = vi.fn()
 const deleteBooking = vi.fn()
 
 const CARS: Car[] = [
-  { id: 'car-1', name: 'VW Golf', licensePlate: null, initialOdometer: 0, active: true },
-  { id: 'car-2', name: 'Opel Corsa', licensePlate: null, initialOdometer: 0, active: true },
+  {
+    id: 'car-1',
+    name: 'VW Golf',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
+  {
+    id: 'car-2',
+    name: 'Opel Corsa',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
+  {
+    id: 'car-old',
+    name: 'Passat',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: false,
+  },
 ]
 
 const ANNA: Profile = { id: 'user-anna', displayName: 'Anna', color: '#0f766e', active: true }
@@ -272,5 +294,20 @@ describe('the end field following the start', () => {
       startsAt: new Date(2026, 8, 22, 10, 0).toISOString(),
       endsAt: new Date(2026, 8, 22, 18, 0).toISOString(),
     })
+  })
+})
+
+describe('a disabled car', () => {
+  const carOptions = () => Array.from(carField().options).map((o) => o.text)
+
+  it('cannot be chosen when moving a reservation to another car', () => {
+    open()
+    expect(carOptions()).toEqual(['VW Golf', 'Opel Corsa'])
+  })
+
+  it('stays on a reservation that was made for it', () => {
+    open({ carId: 'car-old' })
+    expect(carField().value).toBe('car-old')
+    expect(carOptions()).toEqual(['VW Golf', 'Opel Corsa', 'Passat'])
   })
 })

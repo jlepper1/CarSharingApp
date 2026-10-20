@@ -13,9 +13,33 @@ const listBookings = vi.fn()
 const createBooking = vi.fn()
 
 const CARS: Car[] = [
-  { id: 'car-1', name: 'VW Golf', licensePlate: null, initialOdometer: 0, active: true },
-  { id: 'car-2', name: 'Opel Corsa', licensePlate: null, initialOdometer: 0, active: true },
+  {
+    id: 'car-1',
+    name: 'VW Golf',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
+  {
+    id: 'car-2',
+    name: 'Opel Corsa',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
+  {
+    id: 'car-old',
+    name: 'Passat',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: false,
+  },
 ]
+/** Swapped by a test that needs a different garage. */
+let carsInUse = CARS
 
 const ANNA: Profile = { id: 'user-anna', displayName: 'Anna', color: '#0f766e', active: true }
 
@@ -28,7 +52,7 @@ vi.mock('../context/AppContext', () => ({
       updateBooking: vi.fn(),
       subscribe: () => () => {},
     },
-    cars: CARS,
+    cars: carsInUse,
     user: { id: ANNA.id, email: 'anna@example.com' },
   }),
   useProfileLookup: () => (id: string) => (id === ANNA.id ? ANNA : null),
@@ -48,6 +72,7 @@ async function openForm() {
 beforeEach(() => {
   listBookings.mockReset().mockResolvedValue([])
   createBooking.mockReset().mockResolvedValue({ ok: true, value: {} })
+  carsInUse = CARS
 })
 
 describe('creating a reservation', () => {
@@ -100,5 +125,54 @@ describe('creating a reservation', () => {
 
     expect(await screen.findByText(/Ende muss nach dem Beginn/)).toBeInTheDocument()
     expect(createBooking).not.toHaveBeenCalled()
+  })
+})
+
+describe('a disabled car', () => {
+  const chipNames = () =>
+    screen
+      .queryAllByRole('button')
+      .map((b) => b.textContent)
+      .filter((t) => ['Alle Autos', 'VW Golf', 'Opel Corsa', 'Passat'].includes(t ?? ''))
+
+  it('cannot be reserved anymore', async () => {
+    await openForm()
+    const options = Array.from((screen.getByLabelText(/^Auto/) as HTMLSelectElement).options)
+    expect(options.map((o) => o.text)).toEqual(['VW Golf', 'Opel Corsa'])
+  })
+
+  it('gets no filter of its own without reservations on screen', async () => {
+    render(<CalendarScreen />)
+    await screen.findByRole('button', { name: 'VW Golf' })
+    expect(chipNames()).toEqual(['Alle Autos', 'VW Golf', 'Opel Corsa'])
+  })
+
+  it('keeps a filter while its old reservations are on screen', async () => {
+    const now = new Date()
+    now.setHours(10, 0, 0, 0)
+    listBookings.mockResolvedValue([
+      {
+        id: 'old',
+        reference: 1,
+        carId: 'car-old',
+        userId: ANNA.id,
+        startsAt: now.toISOString(),
+        endsAt: new Date(now.getTime() + 3_600_000).toISOString(),
+        purpose: null,
+        createdBy: ANNA.id,
+        updatedBy: null,
+        updatedAt: null,
+      },
+    ])
+    render(<CalendarScreen />)
+    expect(await screen.findByRole('button', { name: 'Passat' })).toBeInTheDocument()
+  })
+
+  it('says so when no car is in use anymore', async () => {
+    carsInUse = [CARS[2]]
+    render(<CalendarScreen />)
+    fireEvent.click((await screen.findAllByRole('button', { name: /\+ Reservieren/ }))[0])
+    expect(await screen.findByText(/Kein aktives Auto/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Reservieren$/ })).toBeDisabled()
   })
 })

@@ -6,18 +6,24 @@ import {
   Field,
   Input,
   Screen,
+  Select,
   Spinner,
 } from '../components/ui'
+import { Sheet } from '../components/Sheet'
 import VersionFooter from '../components/VersionFooter'
 import { useApp } from '../context/AppContext'
 import {
+  DRIVE_TYPE_LABELS,
   SPLIT_RULE_DESCRIPTIONS,
   SPLIT_RULE_LABELS,
+  type Car,
+  type DriveType,
   type SplitRule,
 } from '../data/types'
 import { formatKm } from '../lib/format'
 
 const RULES: SplitRule[] = ['fixed_equal_variable_km', 'all_by_km', 'all_equal']
+const DRIVE_TYPES: DriveType[] = ['fuel', 'electric']
 
 const COLORS = ['#0f766e', '#b45309', '#7c3aed', '#be123c', '#1d4ed8', '#15803d', '#a16207']
 
@@ -122,8 +128,13 @@ function CarSection() {
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [odometer, setOdometer] = useState('')
+  const [driveType, setDriveType] = useState<DriveType>('fuel')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState<Car | null>(null)
+
+  // Cars still in use first, sold ones after them.
+  const sorted = [...cars].sort((a, b) => Number(b.active) - Number(a.active))
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -139,6 +150,7 @@ function CarSection() {
       name: name.trim(),
       licensePlate: plate.trim() || null,
       initialOdometer: initial,
+      driveType,
       active: true,
     })
     setBusy(false)
@@ -147,6 +159,7 @@ function CarSection() {
       setName('')
       setPlate('')
       setOdometer('')
+      setDriveType('fuel')
       setAdding(false)
       await reload()
     } else {
@@ -167,18 +180,34 @@ function CarSection() {
         {cars.length === 0 ? (
           <p className="text-sm text-slate-500">Noch kein Auto angelegt.</p>
         ) : (
-          <ul className="space-y-2">
-            {cars.map((car) => (
-              <li key={car.id} className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="text-slate-700">
-                  {car.name}
-                  {car.licensePlate ? (
-                    <span className="ml-1 text-xs text-slate-400">{car.licensePlate}</span>
-                  ) : null}
-                </span>
-                <span className="shrink-0 text-xs tabular-nums text-slate-500">
-                  Start {formatKm(car.initialOdometer)}
-                </span>
+          <ul className="space-y-1">
+            {sorted.map((car) => (
+              <li key={car.id}>
+                <button
+                  type="button"
+                  onClick={() => setEditing(car)}
+                  aria-label={`${car.name} bearbeiten`}
+                  className="flex w-full items-baseline justify-between gap-2 py-1 text-left text-sm"
+                >
+                  <span className={car.active ? 'text-slate-700' : 'text-slate-400'}>
+                    {car.name}
+                    {car.licensePlate ? (
+                      <span className="ml-1 text-xs text-slate-400">{car.licensePlate}</span>
+                    ) : null}
+                    {car.driveType === 'electric' ? (
+                      <span className="ml-1.5 rounded bg-brand-50 px-1 text-xs text-brand-700">
+                        Elektro
+                      </span>
+                    ) : null}
+                    {!car.active ? <span className="ml-1.5 text-xs">inaktiv</span> : null}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                    Start {formatKm(car.initialOdometer)}
+                    <span aria-hidden className="ml-1.5 text-slate-300">
+                      ›
+                    </span>
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -209,13 +238,131 @@ function CarSection() {
                 />
               </Field>
             </div>
+            <DriveTypeField value={driveType} onChange={setDriveType} />
             <Button type="submit" className="w-full" disabled={busy}>
               {busy ? 'Speichern …' : 'Auto hinzufügen'}
             </Button>
           </form>
         ) : null}
       </Card>
+
+      {editing ? (
+        <CarDialog
+          car={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            void reload()
+          }}
+        />
+      ) : null}
     </>
+  )
+}
+
+function DriveTypeField({
+  value,
+  onChange,
+}: {
+  value: DriveType
+  onChange: (value: DriveType) => void
+}) {
+  return (
+    <Field label="Antrieb">
+      <Select value={value} onChange={(e) => onChange(e.target.value as DriveType)}>
+        {DRIVE_TYPES.map((type) => (
+          <option key={type} value={type}>
+            {DRIVE_TYPE_LABELS[type]}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  )
+}
+
+/**
+ * Edits a car. A sold car is disabled rather than deleted: its trips and costs
+ * stay in the settlement, but it can no longer be reserved or driven.
+ */
+export function CarDialog({
+  car,
+  onClose,
+  onSaved,
+}: {
+  car: Car
+  onClose: () => void
+  /** Something was saved; the caller should reload and close. */
+  onSaved: () => void
+}) {
+  const { provider } = useApp()
+  const [name, setName] = useState(car.name)
+  const [plate, setPlate] = useState(car.licensePlate ?? '')
+  const [driveType, setDriveType] = useState(car.driveType)
+  const [active, setActive] = useState(car.active)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const changed =
+    name !== car.name ||
+    plate !== (car.licensePlate ?? '') ||
+    driveType !== car.driveType ||
+    active !== car.active
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (car.active && !active) {
+      const question = `${car.name} deaktivieren? Es kann dann nicht mehr reserviert oder gefahren werden. Bisherige Fahrten und Kosten bleiben erhalten.`
+      if (!confirm(question)) return
+    }
+
+    setBusy(true)
+    setError(null)
+    const result = await provider.updateCar(car.id, {
+      name: name.trim(),
+      licensePlate: plate.trim() || null,
+      driveType,
+      active,
+    })
+    setBusy(false)
+
+    if (result.ok) onSaved()
+    else setError(result.message)
+  }
+
+  return (
+    <Sheet title="Auto bearbeiten" dirty={changed} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <ErrorBanner message={error} />
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Field label="Kennzeichen">
+          <Input value={plate} onChange={(e) => setPlate(e.target.value)} />
+        </Field>
+        <DriveTypeField value={driveType} onChange={setDriveType} />
+
+        <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span className="text-sm text-slate-700">
+            Auto ist aktiv
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Ausschalten, wenn das Auto verkauft ist. Es kann dann nicht mehr reserviert oder
+              gefahren werden. Späte Kosten lassen sich weiter eintragen, die Abrechnung bleibt
+              vollständig.
+            </span>
+          </span>
+        </label>
+
+        <Button type="submit" className="w-full" disabled={busy || !changed}>
+          {busy ? 'Speichern …' : changed ? 'Änderungen speichern' : 'Keine Änderungen'}
+        </Button>
+      </form>
+    </Sheet>
   )
 }
 

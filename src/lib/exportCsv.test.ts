@@ -9,7 +9,14 @@ const profiles: Profile[] = [
   { id: 'b', displayName: 'Bernd', color: '#000', active: true },
 ]
 const cars: Car[] = [
-  { id: 'golf', name: 'Golf', licensePlate: null, initialOdometer: 0, active: true },
+  {
+    id: 'golf',
+    name: 'Golf',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
 ]
 const trips: Trip[] = [
   {
@@ -37,6 +44,7 @@ const expenses: Expense[] = [
     periodStart: null,
     periodEnd: null,
     liters: null,
+    kwh: null,
     note: null,
     receiptPath: null,
   },
@@ -90,5 +98,37 @@ describe('buildSettlementCsv', () => {
 
   it('lists trips with everyone on them and escapes the note', () => {
     expect(lines).toContain('So., 05.07.;Golf;1000;1101;101;Anna, Bernd;"Ausflug; ""Ostsee"""')
+  })
+})
+
+describe('buildSettlementCsv with an electric car', () => {
+  const eup: Car = { ...cars[0], id: 'eup', name: 'e-Up', driveType: 'electric' }
+  const charge: Expense = {
+    ...expenses[0],
+    id: 'c',
+    carId: 'eup',
+    userId: 'b',
+    category: 'charging',
+    amountCents: 1_536,
+    kwh: 38.4,
+  }
+  const result = computeSettlement({
+    profiles,
+    trips,
+    expenses: [charge],
+    rule: 'all_by_km',
+    range,
+  })
+  const lines = buildSettlementCsv({
+    result,
+    trips,
+    payments: [],
+    profiles,
+    cars: [...cars, eup],
+    periodLabel: 'Juli 2026',
+  }).split('\r\n')
+
+  it('names a charge as electricity, not as fuel', () => {
+    expect(lines).toContain('Mo., 06.07.;Laden (Strom);e-Up;Bernd;15,36;nach km;7,68;7,68')
   })
 })

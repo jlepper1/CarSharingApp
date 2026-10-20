@@ -112,11 +112,13 @@ export default function BookingDetail({
       <form onSubmit={handleSave} className="space-y-4">
         <Field label="Auto">
           <Select value={carId} onChange={(e) => setCarId(e.target.value)} required>
-            {cars.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            {cars
+              .filter((c) => c.active || c.id === booking.carId)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
           </Select>
         </Field>
 

@@ -15,8 +15,25 @@ const leaveTrip = vi.fn()
 const getLastOdometer = vi.fn()
 
 const CARS: Car[] = [
-  { id: 'car-1', name: 'VW Golf', licensePlate: null, initialOdometer: 0, active: true },
+  {
+    id: 'car-1',
+    name: 'VW Golf',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: true,
+  },
+  {
+    id: 'car-old',
+    name: 'Passat',
+    licensePlate: null,
+    initialOdometer: 0,
+    driveType: 'fuel',
+    active: false,
+  },
 ]
+/** Swapped by a test that needs a different garage. */
+let carsInUse = CARS
 const ANNA: Profile = { id: 'user-anna', displayName: 'Anna', color: '#0f766e', active: true }
 const BERND: Profile = { id: 'user-bernd', displayName: 'Bernd', color: '#b45309', active: true }
 const CARLA: Profile = { id: 'user-carla', displayName: 'Carla', color: '#7c3aed', active: true }
@@ -25,7 +42,7 @@ const PEOPLE = [ANNA, BERND, CARLA]
 vi.mock('../context/AppContext', () => ({
   useApp: () => ({
     provider: { createTrip, updateTrip, deleteTrip, leaveTrip, getLastOdometer },
-    cars: CARS,
+    cars: carsInUse,
     profiles: PEOPLE,
     user: { id: 'user-anna', email: 'anna@example.com' },
   }),
@@ -64,6 +81,7 @@ beforeEach(() => {
   leaveTrip.mockReset().mockResolvedValue({ ok: true, value: 'left' })
   getLastOdometer.mockReset().mockResolvedValue(1090)
   confirmSpy.mockReset().mockReturnValue(true)
+  carsInUse = CARS
 })
 
 afterEach(() => confirmSpy.mockReset())
@@ -149,5 +167,28 @@ describe('editing a trip', () => {
   it('shows who entered the trip', () => {
     open(saved)
     expect(screen.getByText('Eingetragen von Bernd')).toBeInTheDocument()
+  })
+})
+
+describe('a disabled car', () => {
+  const carOptions = () =>
+    Array.from((screen.getByLabelText(/^Auto/) as HTMLSelectElement).options).map((o) => o.text)
+
+  it('is not offered for a new trip', () => {
+    open()
+    expect(carOptions()).toEqual(['VW Golf'])
+  })
+
+  it('stays on an older trip that was driven with it', () => {
+    open({ ...saved, carId: 'car-old' })
+    expect((screen.getByLabelText(/^Auto/) as HTMLSelectElement).value).toBe('car-old')
+    expect(carOptions()).toEqual(['VW Golf', 'Passat'])
+  })
+
+  it('leaves a hint when no car is in use anymore', () => {
+    carsInUse = [CARS[1]]
+    open()
+    expect(screen.getByText(/Kein aktives Auto/)).toBeInTheDocument()
+    expect(carOptions()).toEqual([])
   })
 })
