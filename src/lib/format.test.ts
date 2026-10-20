@@ -6,6 +6,7 @@ import {
   formatEnergyConsumption,
   formatEuroPerKm,
   parseAmountToCents,
+  parseQuantity,
 } from './format'
 
 describe('parseAmountToCents', () => {
@@ -105,5 +106,19 @@ describe('car figures', () => {
   it('shows electricity consumption in kWh per 100 km', () => {
     expect(formatEnergyConsumption(16.84)).toBe('16,8 kWh/100 km')
     expect(formatEnergyConsumption(null)).toBe('–')
+  })
+})
+
+describe('parseQuantity', () => {
+  it('reads litres and kWh with a comma or a full stop', () => {
+    expect(parseQuantity('42,5')).toBe(42.5)
+    expect(parseQuantity('38.4')).toBe(38.4)
+    expect(parseQuantity(' 60 ')).toBe(60)
+  })
+
+  it('rejects zero, negative and malformed quantities', () => {
+    for (const input of ['0', '0,00', '-5', '1e3', 'abc', '4,567', '1.234,5', '1234567']) {
+      expect(parseQuantity(input)).toBeNull()
+    }
   })
 })

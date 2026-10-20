@@ -62,18 +62,29 @@ const TRIP_CONFLICT = 'Diese km sind für dieses Auto schon als Fahrt eingetrage
  * `conflictMessage` names what overlapped, since bookings (time) and trips
  * (odometer readings) each have their own exclusion constraint.
  */
-function toFailure(
-  error: PostgrestError,
+export function toFailure(
+  error: Pick<PostgrestError, 'code' | 'message'>,
   conflictMessage = BOOKING_CONFLICT,
 ): { ok: false; reason: 'conflict' | 'auth' | 'validation' | 'unknown'; message: string } {
   switch (error.code) {
     case '23P01': // exclusion_violation - bookings_no_overlap or trips_no_odometer_overlap
       return { ok: false, reason: 'conflict', message: conflictMessage }
+    case 'CS001': // raised by check_car_active (migration 0007)
+      return {
+        ok: false,
+        reason: 'validation',
+        message:
+          'Dieses Auto ist deaktiviert und kann nicht mehr reserviert oder gefahren werden. Unter „Mehr“ lässt es sich wieder aktivieren.',
+      }
     case '23514': // check_violation
       return {
         ok: false,
         reason: 'validation',
-        message: 'Die Eingaben sind nicht gültig. Bitte prüfe Datum und Kilometerstand.',
+        // The quantity checks of migration 0007 are on expenses; everything
+        // else that can fail here is a date or an odometer reading.
+        message: error.message.includes('expenses_')
+          ? 'Die Eingaben sind nicht gültig. Bitte prüfe Betrag und Menge (Liter bzw. kWh).'
+          : 'Die Eingaben sind nicht gültig. Bitte prüfe Datum und Kilometerstand.',
       }
     case '42501': // insufficient_privilege - a row level security policy said no
       return {

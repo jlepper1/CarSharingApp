@@ -22,6 +22,17 @@ export function parseAmountToCents(input: string): number | null {
   return Math.round(Number(normalised) * 100)
 }
 
+/**
+ * Parse litres or kWh ("42,5"). Null unless it is a number above zero with at
+ * most two decimals that fits the database column (numeric 8,2).
+ */
+export function parseQuantity(input: string): number | null {
+  const normalised = input.trim().replace(',', '.')
+  if (!/^\d{1,6}(\.\d{1,2})?$/.test(normalised)) return null
+  const value = Number(normalised)
+  return value > 0 ? value : null
+}
+
 /** Length of a reservation, e.g. "8 Std." or "2 Tage 4 Std.". */
 export function formatDuration(startsAt: string, endsAt: string): string {
   const minutes = Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000)

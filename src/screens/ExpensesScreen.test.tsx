@@ -223,6 +223,22 @@ describe('fuel and electric cars', () => {
     )
   })
 
+  it('refuses a quantity that is not above zero', () => {
+    open()
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-e' } })
+    fireEvent.change(field(/Betrag/), { target: { value: '12,00' } })
+    for (const bad of ['0', '-5', 'viel']) {
+      fireEvent.change(field(/^kWh/), { target: { value: bad } })
+      fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+      expect(screen.getByText(/gültige Menge in kWh/)).toBeInTheDocument()
+    }
+    fireEvent.change(field(/^Auto/), { target: { value: 'car-1' } })
+    fireEvent.change(field(/^Liter/), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    expect(screen.getByText(/gültige Menge in Liter/)).toBeInTheDocument()
+    expect(createExpense).not.toHaveBeenCalled()
+  })
+
   it('prefills the kWh of a saved charge', () => {
     open({
       ...insurance,

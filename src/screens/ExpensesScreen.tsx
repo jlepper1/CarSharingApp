@@ -23,7 +23,7 @@ import {
   type ExpenseCategory,
 } from '../data/types'
 import { formatDateISO, formatMonth, formatPeriod, monthRange, todayISO } from '../lib/dates'
-import { formatCents, parseAmountToCents } from '../lib/format'
+import { formatCents, parseAmountToCents, parseQuantity } from '../lib/format'
 import { accruedCents, costSummary } from '../lib/settlement'
 
 const CATEGORY_ORDER: ExpenseCategory[] = [
@@ -304,6 +304,14 @@ export function ExpenseDialog({
       setError('Das Ende des Zeitraums darf nicht vor dem Beginn liegen.')
       return
     }
+    // Only the field that is on screen counts; the other one is never saved.
+    const quantityInput = category === 'fuel' ? liters : category === 'charging' ? kwh : ''
+    const quantity = quantityInput.trim() ? parseQuantity(quantityInput) : null
+    if (quantityInput.trim() && quantity === null) {
+      const unit = category === 'fuel' ? 'Liter' : 'kWh'
+      setError(`Bitte eine gültige Menge in ${unit} eintragen, z. B. 42,5.`)
+      return
+    }
 
     const values = {
       carId: carId || null,
@@ -313,8 +321,8 @@ export function ExpenseDialog({
       incurredOn,
       periodStart: spread ? periodStart : null,
       periodEnd: spread ? periodEnd : null,
-      liters: category === 'fuel' && liters ? Number(liters.replace(',', '.')) : null,
-      kwh: category === 'charging' && kwh ? Number(kwh.replace(',', '.')) : null,
+      liters: category === 'fuel' ? quantity : null,
+      kwh: category === 'charging' ? quantity : null,
       note: note.trim() || null,
     }
 
