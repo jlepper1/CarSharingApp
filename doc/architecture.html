@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture · Familien-Carsharing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">🚗 Familien-Carsharing · Documentation</a>
+  <nav class="top">
+    <a href="index.html">Overview</a>
+    <a href="features.html">Features</a>
+    <a href="user-guide.html">User guide</a>
+    <a href="installation.html">Installation</a>
+    <a href="database-setup.html">Database setup</a>
+    <a href="architecture.html" aria-current="page">Architecture</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Architecture</h1>
+  <p class="lead">Programming language, servers, hosting, and how the app is designed around its database.</p>
+
+  <div class="toc">
+    <ul>
+      <li><a href="#stack">Programming language and libraries</a></li>
+      <li><a href="#server">Application server and hosting</a></li>
+      <li><a href="#structure">Code structure</a></li>
+      <li><a href="#db">Database design</a></li>
+      <li><a href="#security">Security model</a></li>
+      <li><a href="#migrations">Migrations</a></li>
+      <li><a href="#settlement">Settlement calculation</a></li>
+      <li><a href="#tests">Tests and quality</a></li>
+    </ul>
+  </div>
+
+  <h2 id="stack">Programming language and libraries</h2>
+  <p>The app is written in <strong>TypeScript</strong> (version 6, strict type checking). The database logic — constraints, triggers, security policies — is written in <strong>SQL / PL/pgSQL</strong> for PostgreSQL.</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Part</th><th>Technology</th><th>Purpose</th></tr>
+      <tr><td>UI framework</td><td>React 19, React Router 7</td><td>Screens, navigation (<code>/</code>, <code>/fahrten</code>, <code>/kosten</code>, <code>/abrechnung</code>, <code>/einstellungen</code>)</td></tr>
+      <tr><td>Styling</td><td>Tailwind CSS 4</td><td>Mobile-first layout, print styles</td></tr>
+      <tr><td>Build tool</td><td>Vite 8</td><td>Development server and production build into <code>dist/</code></td></tr>
+      <tr><td>PWA</td><td>vite-plugin-pwa</td><td>Web app manifest, service worker, offline cache, auto update</td></tr>
+      <tr><td>Backend client</td><td>@supabase/supabase-js 2</td><td>Login, database queries, realtime subscriptions</td></tr>
+      <tr><td>Dates</td><td>date-fns 4</td><td>Month ranges, day-exact accrual of yearly bills</td></tr>
+      <tr><td>PDF on iOS</td><td>modern-screenshot, jsPDF</td><td>Render the settlement page into a PDF for the share sheet</td></tr>
+      <tr><td>Tests</td><td>Vitest, Testing Library, jsdom</td><td>Unit tests and screen tests</td></tr>
+      <tr><td>Lint / format</td><td>oxlint, Prettier</td><td>Code quality</td></tr>
+    </table>
+  </div>
+
+  <h2 id="server">Application server and hosting</h2>
+  <p>
+    The app has <strong>no application server of its own</strong>. It is a single-page application:
+    the build produces static HTML, JavaScript and CSS files, and all logic runs in the browser.
+    Data access and business rules that must be guaranteed live in the database.
+  </p>
+  <ul>
+    <li><strong>Web hosting:</strong> GitHub Pages serves the static files at <code>https://&lt;user&gt;.github.io/CarSharingApp/</code>. GitHub Actions (<code>.github/workflows/deploy.yml</code>) runs the tests, builds and publishes on every push to <code>main</code>. Any static web server (nginx, Apache, Netlify, …) would work as well.</li>
+    <li><strong>Backend:</strong> <a href="https://supabase.com">Supabase</a> (hosted, free tier is sufficient). It provides
+      <ul>
+        <li><strong>PostgreSQL</strong> — the database,</li>
+        <li><strong>Supabase Auth (GoTrue)</strong> — e-mail/password login and session tokens (JWT),</li>
+        <li><strong>PostgREST</strong> — the REST API that the app uses to read and write tables and call functions,</li>
+        <li><strong>Realtime</strong> — pushes table changes to all open apps (live reload),</li>
+        <li><strong>Storage</strong> — a private <code>receipts</code> bucket (prepared for receipt photos).</li>
+      </ul>
+    </li>
+    <li><strong>Development:</strong> the Vite development server (<code>npm run dev</code>, port 5173) serves the app locally and in the home network, so it can be tested on a phone.</li>
+  </ul>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 250" role="img" aria-label="Phone or browser loads the app from GitHub Pages and talks to Supabase">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path class="arrowhead" d="M0,0 L10,5 L0,10 z"/>
+        </marker>
+      </defs>
+      <rect class="box" x="10" y="85" width="170" height="80" rx="10"/>
+      <text class="lbl" x="95" y="118" text-anchor="middle">Phone / browser</text>
+      <text class="sub" x="95" y="140" text-anchor="middle">React PWA (TypeScript)</text>
+
+      <rect class="box" x="400" y="10" width="230" height="70" rx="10"/>
+      <text class="lbl" x="515" y="40" text-anchor="middle">GitHub Pages</text>
+      <text class="sub" x="515" y="62" text-anchor="middle">static files (HTML, JS, CSS)</text>
+
+      <rect class="box" x="400" y="120" width="230" height="120" rx="10"/>
+      <text class="lbl" x="515" y="148" text-anchor="middle">Supabase</text>
+      <text class="sub" x="515" y="170" text-anchor="middle">Auth · REST API · Realtime</text>
+      <text class="sub" x="515" y="190" text-anchor="middle">PostgreSQL (tables, triggers,</text>
+      <text class="sub" x="515" y="208" text-anchor="middle">row level security)</text>
+      <text class="sub" x="515" y="226" text-anchor="middle">Storage</text>
+
+      <path class="line" d="M180,110 L398,50" marker-end="url(#arr)"/>
+      <text class="sub" x="250" y="66">1. load app (HTTPS)</text>
+      <path class="line" d="M180,140 L398,170" marker-end="url(#arr)" marker-start="url(#arr)"/>
+      <text class="sub" x="210" y="190">2. login, data (HTTPS, JWT)</text>
+      <text class="sub" x="210" y="208">3. live changes (WebSocket)</text>
+    </svg>
+    <figcaption>The app is loaded once from GitHub Pages and cached on the phone; afterwards it talks only to Supabase.</figcaption>
+  </figure>
+
+  <h2 id="structure">Code structure</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Path</th><th>Content</th></tr>
+      <tr><td><code>src/main.tsx</code>, <code>src/App.tsx</code></td><td>Start-up and routing; shows the setup screen if keys are missing, the login if nobody is signed in</td></tr>
+      <tr><td><code>src/context/AppContext.tsx</code></td><td>Signed-in user, profiles, cars, settings; shared by all screens</td></tr>
+      <tr><td><code>src/screens/</code></td><td>One file per screen: Calendar, Trips, Expenses, Settlement, PersonSettlement, Settings, Login, Setup</td></tr>
+      <tr><td><code>src/components/</code></td><td>Layout with bottom navigation, bottom sheets, month grid, charts, print button</td></tr>
+      <tr><td><code>src/data/DataProvider.ts</code></td><td>Interface for <em>all</em> data access</td></tr>
+      <tr><td><code>src/data/supabase/SupabaseProvider.ts</code></td><td>The Supabase implementation of that interface; maps database rows (snake_case) to domain types</td></tr>
+      <tr><td><code>src/data/types.ts</code></td><td>Backend-independent domain types (Car, Booking, Trip, Expense, …)</td></tr>
+      <tr><td><code>src/lib/</code></td><td>Settlement maths, date helpers, formatting, CSV and PDF export, live reload</td></tr>
+      <tr><td><code>supabase/migrations/</code></td><td>SQL scripts that create and evolve the database</td></tr>
+    </table>
+  </div>
+  <p>
+    <strong>Data access seam:</strong> no screen talks to Supabase directly. Everything goes through the
+    <code>DataProvider</code> interface. This keeps the screens testable with a mocked provider and
+    would allow another backend by writing one new provider class. Supabase is the chosen backend
+    permanently, so the database is free to use PostgreSQL-specific features.
+  </p>
+
+  <h2 id="db">Database design</h2>
+  <p>
+    The database is the single source of truth and enforces the rules that must never be broken,
+    so they hold even if two phones save simultaneously or someone bypasses the app and calls the
+    API directly. The app's own checks are only for friendly error messages.
+  </p>
+
+  <h3>Tables (schema <code>public</code>)</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Table</th><th>Content</th><th>Important columns and rules</th></tr>
+      <tr><td><code>profiles</code></td><td>One row per family member, linked 1:1 to the login account <code>auth.users</code></td><td><code>display_name</code>, <code>color</code>, <code>active</code>. Created automatically when an account is added.</td></tr>
+      <tr><td><code>cars</code></td><td>The shared cars</td><td><code>name</code>, <code>license_plate</code>, <code>initial_odometer</code>, <code>drive_type</code> (<code>fuel</code>/<code>electric</code>), <code>active</code>. Cannot be deleted, only deactivated.</td></tr>
+      <tr><td><code>bookings</code></td><td>Reservations</td><td><code>car_id</code>, <code>user_id</code>, <code>starts_at</code>, <code>ends_at</code>, <code>purpose</code>, running <code>reference</code> number. Exclusion constraint: no overlapping time ranges per car.</td></tr>
+      <tr><td><code>trips</code></td><td>Driven trips</td><td><code>car_id</code>, <code>participant_ids</code> (array of profiles, at least one), <code>driven_on</code>, <code>odometer_start</code>, <code>odometer_end</code>, generated <code>distance_km</code>. Exclusion constraint: no overlapping odometer ranges per car.</td></tr>
+      <tr><td><code>expenses</code></td><td>Costs</td><td><code>user_id</code> (who paid), <code>category</code> (enum), <code>amount_cents</code> (integer), <code>incurred_on</code>, optional <code>period_start</code>/<code>period_end</code>, <code>liters</code> (fuel only), <code>kwh</code> (charging only), <code>car_id</code> (optional).</td></tr>
+      <tr><td><code>settlement_payments</code></td><td>Transfers marked as paid</td><td><code>from_user</code>, <code>to_user</code>, <code>amount_cents</code> &gt; 0, <code>applies_on</code> (last day of the settled period).</td></tr>
+      <tr><td><code>settings</code></td><td>Exactly one row (<code>id = 1</code>)</td><td><code>split_rule</code> (enum), <code>currency</code>.</td></tr>
+    </table>
+  </div>
+  <p>Bookings, trips and expenses also carry the audit columns <code>created_by</code>, <code>updated_by</code>, <code>updated_at</code>, which are set by a trigger — never by the app.</p>
+
+  <h3>Rules enforced by the database</h3>
+  <ul>
+    <li><strong>No double booking:</strong> <code>exclude using gist (car_id with =, tstzrange(starts_at, ends_at) with &amp;&amp;)</code> (extension <code>btree_gist</code>).</li>
+    <li><strong>No double-counted kilometres:</strong> the same kind of exclusion constraint on the odometer range of trips per car.</li>
+    <li><strong>Derived distance:</strong> <code>distance_km</code> is a generated column (<code>odometer_end - odometer_start</code>), so it can never disagree with the readings.</li>
+    <li><strong>Money in cents:</strong> <code>amount_cents integer</code>; no floating-point money anywhere.</li>
+    <li><strong>Consistency checks:</strong> end after start, odometer end ≥ start, period start and end both set or both empty, litres only for fuel, kWh only for charging, quantities &gt; 0.</li>
+    <li><strong>Inactive cars:</strong> trigger <code>check_car_active</code> rejects new bookings and trips for a deactivated car.</li>
+    <li><strong>Valid participants:</strong> trigger <code>check_trip_participants</code> accepts only existing family members.</li>
+  </ul>
+
+  <h3>Functions and triggers</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Name</th><th>What it does</th></tr>
+      <tr><td><code>handle_new_user()</code></td><td>After a new account is inserted into <code>auth.users</code>, creates its <code>profiles</code> row (display name from metadata or from the part of the e-mail before <code>@</code>).</td></tr>
+      <tr><td><code>is_family_member()</code></td><td>True if the caller is signed in and has an <em>active</em> profile. Used by all security policies.</td></tr>
+      <tr><td><code>stamp_audit()</code>, <code>stamp_created_by()</code></td><td>Fill <code>created_by</code>, <code>updated_by</code>, <code>updated_at</code> from the signed-in user.</td></tr>
+      <tr><td><code>leave_trip(trip_id)</code></td><td>Removes the caller from a shared trip; deletes the trip when the last person leaves.</td></tr>
+      <tr><td><code>check_car_active()</code>, <code>check_trip_participants()</code></td><td>Validation triggers, see above.</td></tr>
+    </table>
+  </div>
+
+  <h3>How the app reads data</h3>
+  <ul>
+    <li>Screens ask the <code>DataProvider</code> for a date range (e.g. the month shown). The Supabase provider issues PostgREST queries with filters and maps rows to domain types.</li>
+    <li>The settlement is calculated in the browser from the trips, expenses and payments of the period (<code>src/lib/settlement.ts</code>). Nothing derived is stored, so a correction to an old trip immediately changes the settlement.</li>
+    <li>All tables are added to the <code>supabase_realtime</code> publication. The app subscribes to changes (<code>src/lib/useLiveReload.ts</code>) and quietly reloads; bursts of changes trigger one reload.</li>
+  </ul>
+
+  <h2 id="security">Security model</h2>
+  <ul>
+    <li><strong>Authentication:</strong> e-mail and password via Supabase Auth. Self sign-up is switched off; the administrator creates every account.</li>
+    <li><strong>Row level security (RLS)</strong> is enabled on every table. Every policy requires <code>is_family_member()</code>: only signed-in, active members can read or write anything. Anonymous requests see nothing.</li>
+    <li><strong>Trust model:</strong> every active member may create, change and delete every booking, trip and expense. The audit columns show who did what.</li>
+    <li><strong>Profiles:</strong> a member may change only their own <code>display_name</code> and <code>color</code>. The <code>active</code> flag can only be changed in the Supabase dashboard, so a deactivated member cannot re-enable themselves.</li>
+    <li><strong>Cars</strong> cannot be deleted by anybody through the API.</li>
+    <li>The <strong>anon key</strong> in the app is public by design; the RLS policies protect the data. The <em>service_role</em> key must never be put into the app.</li>
+  </ul>
+
+  <h2 id="migrations">Migrations</h2>
+  <p>The schema is created and changed only by the numbered SQL scripts in <code>supabase/migrations/</code>, run in order in the Supabase SQL Editor. The scripts use <code>if not exists</code> / <code>drop … if exists</code> so that running one twice does no harm; still, run each script only once.</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Script</th><th>Purpose</th></tr>
+      <tr><td><code>0001_init.sql</code></td><td>Tables, enums, indexes, profile trigger, RLS policies, receipts bucket</td></tr>
+      <tr><td><code>0002_booking_reference.sql</code></td><td>Running reservation number</td></tr>
+      <tr><td><code>0003_shared_trips.sql</code></td><td>Trips with several participants, everyone-may-edit with audit columns, no odometer overlap, <code>leave_trip</code></td></tr>
+      <tr><td><code>0004_settlement_payments.sql</code></td><td>Table for paid transfers; realtime publication</td></tr>
+      <tr><td><code>0005_profile_update_columns.sql</code></td><td>Own profile: only name and colour editable</td></tr>
+      <tr><td><code>0006_car_drive_type.sql</code></td><td>Fuel/electric cars, category <code>charging</code>, kWh column</td></tr>
+      <tr><td><code>0007_harden_cars_and_quantities.sql</code></td><td>Cars cannot be deleted; no new bookings/trips for inactive cars; litre/kWh checks</td></tr>
+      <tr><td><code>0008_profile_colors.sql</code></td><td>Colour-blind-safe profile colours</td></tr>
+    </table>
+  </div>
+
+  <h2 id="settlement">Settlement calculation</h2>
+  <ol>
+    <li>Collect the costs of the period. A cost with a period (yearly bill) contributes only the days that fall into the settled period.</li>
+    <li>Split each cost by the chosen rule: equally between the involved members (all active members, plus inactive ones who still drove or paid in the period), or by each member's share of the kilometres (a shared trip counts once and its km are split equally between its participants).</li>
+    <li>Everything is in whole cents; leftover cents go to the largest remainders, so shares add up exactly.</li>
+    <li>Balance per person = paid − share ± settlement payments.</li>
+    <li>Transfers: repeatedly match the largest debtor with the largest creditor, giving few, simple payments.</li>
+  </ol>
+
+  <h2 id="tests">Tests and quality</h2>
+  <ul>
+    <li><code>npm test</code> runs Vitest: settlement maths, dates, formatting, CSV and PDF export, the Supabase provider mapping, and screen tests with a mocked provider.</li>
+    <li>The GitHub Actions workflow runs the tests before every deployment; a failing test stops the deployment.</li>
+    <li><code>npm run lint</code> (oxlint) and <code>tsc</code> (part of <code>npm run build</code>) check code quality and types.</li>
+  </ul>
+</main>
+
+<footer class="site">Familien-Carsharing · documentation for version 1.5.3</footer>
+</body>
+</html>

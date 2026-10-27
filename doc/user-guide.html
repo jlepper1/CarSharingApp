@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>User Guide · Familien-Carsharing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">🚗 Familien-Carsharing · Documentation</a>
+  <nav class="top">
+    <a href="index.html">Overview</a>
+    <a href="features.html">Features</a>
+    <a href="user-guide.html" aria-current="page">User guide</a>
+    <a href="installation.html">Installation</a>
+    <a href="database-setup.html">Database setup</a>
+    <a href="architecture.html">Architecture</a>
+  </nav>
+</header>
+
+<main>
+  <h1>User guide</h1>
+  <p class="lead">How family members use the app day to day. Button and field names are quoted exactly as they appear in the (German) app.</p>
+
+  <div class="toc">
+    <ul>
+      <li><a href="#start">Getting started</a></li>
+      <li><a href="#nav">Finding your way around</a></li>
+      <li><a href="#reserve">Reserve a car</a></li>
+      <li><a href="#trip">Record a trip</a></li>
+      <li><a href="#cost">Enter costs</a></li>
+      <li><a href="#settle">Settle up</a></li>
+      <li><a href="#export">Export: CSV and PDF</a></li>
+      <li><a href="#more">Settings, cars and your profile</a></li>
+      <li><a href="#routine">Recommended routine</a></li>
+      <li><a href="#faq">Questions and problems</a></li>
+    </ul>
+  </div>
+
+  <h2 id="start">Getting started</h2>
+  <ol class="steps">
+    <li>You receive the app address, your e-mail login and a password from whoever manages the app. There is no self-registration.</li>
+    <li>Install the app on your phone:
+      <ul>
+        <li><strong>iPhone:</strong> open the address in <strong>Safari</strong>, tap <em>Teilen</em> → <em>Zum Home-Bildschirm</em>.</li>
+        <li><strong>Android:</strong> open it in Chrome, menu ⋮ → <em>App installieren</em>.</li>
+      </ul>
+    </li>
+    <li>Open the app from the home screen, enter <span class="ui">„E-Mail“</span> and <span class="ui">„Passwort“</span> and tap <span class="ui">„Anmelden“</span>. You stay signed in.</li>
+    <li>Go to <span class="ui">„Mehr“</span> → <span class="ui">„Mein Profil“</span>, check your display name (<span class="ui">„Anzeigename“</span>), pick a colour (<span class="ui">„Farbe im Kalender“</span>) that nobody else uses, and tap <span class="ui">„Profil speichern“</span>.</li>
+  </ol>
+
+  <h2 id="nav">Finding your way around</h2>
+  <p>The bar at the bottom has five tabs:</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Tab</th><th>Use it to …</th></tr>
+      <tr><td>📅 <span class="ui">Kalender</span></td><td>see and make reservations</td></tr>
+      <tr><td>🚗 <span class="ui">Fahrten</span></td><td>record kilometres after driving</td></tr>
+      <tr><td>🧾 <span class="ui">Kosten</span></td><td>enter fuel, charging, insurance, repairs, …</td></tr>
+      <tr><td>⚖️ <span class="ui">Abrechnung</span></td><td>see who owes whom, charts, export</td></tr>
+      <tr><td>⚙️ <span class="ui">Mehr</span></td><td>split rule, cars, family, your profile, sign out</td></tr>
+    </table>
+  </div>
+  <p>Forms open as a sheet from the bottom of the screen. Changes made by others appear automatically — no need to reload.</p>
+
+  <h2 id="reserve">Reserve a car („Kalender“)</h2>
+  <h3>Make a reservation</h3>
+  <ol class="steps">
+    <li>In <span class="ui">„Kalender“</span>, view <span class="ui">„Monat“</span>, tap the day you need the car. The reservations of that day are listed below the grid.</li>
+    <li>Tap <span class="ui">„+ Reservieren“</span>.</li>
+    <li>Choose the car (<span class="ui">„Auto“</span>), start (<span class="ui">„Von“</span>) and end (<span class="ui">„Bis“</span>) date and time, optionally a purpose (<span class="ui">„Zweck“</span>, e.g. „Einkauf“, „Urlaub“).</li>
+    <li>Tap <span class="ui">„Reservieren“</span>.</li>
+  </ol>
+  <p>If the car is already reserved in that time, the app refuses the reservation — pick another time or the other car.</p>
+
+  <h3>View, change or delete</h3>
+  <ul>
+    <li>Switch to <span class="ui">„Liste“</span> for <span class="ui">„Kommende“</span> and <span class="ui">„Vergangene“</span> reservations. With several cars, filter with <span class="ui">„Alle Autos“</span> or a car name.</li>
+    <li>Tap a reservation to open it. Change the fields and tap <span class="ui">„Änderungen speichern“</span>, or tap <span class="ui">„Reservierung löschen“</span> if the trip is cancelled.</li>
+    <li>Each reservation has a number (<em>Reservierung Nummer 12</em>) to refer to it in the family chat. The sheet also shows who created it and who changed it last.</li>
+  </ul>
+
+  <h2 id="trip">Record a trip („Fahrten“)</h2>
+  <p>Record every trip, ideally right after parking the car — this is the basis of the cost split.</p>
+  <ol class="steps">
+    <li>In <span class="ui">„Fahrten“</span> tap <span class="ui">„+ Fahrt“</span>.</li>
+    <li>Choose the car and the date (<span class="ui">„Datum“</span>).</li>
+    <li>Under <span class="ui">„Wer ist gefahren?“</span> select yourself — and anyone else who shared the trip. The kilometres are split equally between all selected persons.</li>
+    <li><span class="ui">„km-Stand Start“</span> is pre-filled with the last recorded reading of this car. Compare it with the dashboard: if the car shows more, someone forgot a trip — keep the pre-filled value (the gap is then visible in the settlement) or ask in the family.</li>
+    <li>Enter <span class="ui">„km-Stand Ende“</span> from the car's odometer (whole kilometres), optionally a note (<span class="ui">„Notiz“</span>).</li>
+    <li>Tap <span class="ui">„Speichern“</span>. The distance is calculated automatically.</li>
+  </ol>
+  <h3>Change a trip</h3>
+  <ul>
+    <li>Tap the trip → <span class="ui">„Fahrt bearbeiten“</span> → adjust → <span class="ui">„Änderungen speichern“</span>.</li>
+    <li><span class="ui">„Mich austragen“</span> removes only you from a shared trip; the others keep it. If you are the last person, the trip is deleted.</li>
+    <li><span class="ui">„Fahrt für alle löschen“</span> deletes the trip completely.</li>
+  </ul>
+  <p>The list shows <span class="ui">„Kilometer im Monat“</span> per person; use the arrows at the top to change the month.</p>
+
+  <h2 id="cost">Enter costs („Kosten“)</h2>
+  <ol class="steps">
+    <li>In <span class="ui">„Kosten“</span> tap <span class="ui">„+ Kosten“</span>.</li>
+    <li><span class="ui">„Art“</span>: Tanken, Laden (Strom), KFZ-Versicherung, KFZ-Steuer, Reparatur, Wartung, Reifen or Sonstiges.</li>
+    <li><span class="ui">„Auto“</span>: the car the cost belongs to, or <span class="ui">„Kein bestimmtes Auto“</span>.</li>
+    <li><span class="ui">„Betrag (€)“</span>: e.g. <code>54,90</code>. <span class="ui">„Bezahlt von“</span>: the person who actually paid (yourself by default).</li>
+    <li><span class="ui">„Datum“</span> of the receipt.</li>
+    <li>For fuel enter <span class="ui">„Liter“</span>, for charging <span class="ui">„kWh“</span> — this gives the consumption per 100 km in the settlement.</li>
+    <li>Tap <span class="ui">„Speichern“</span>.</li>
+  </ol>
+  <h3>Yearly bills (insurance, tax)</h3>
+  <p>Tick <span class="ui">„Über einen Zeitraum verteilen“</span> and enter <span class="ui">„Zeitraum von“</span> and <span class="ui">„Zeitraum bis“</span> (e.g. 01.01. – 31.12.). The amount is then spread day by day over the months instead of landing completely in the month it was paid.</p>
+  <h3>Change or delete</h3>
+  <p>Tap the entry → <span class="ui">„Kosten bearbeiten“</span> → <span class="ui">„Änderungen speichern“</span> or <span class="ui">„Kosten für alle löschen“</span>.</p>
+
+  <h2 id="settle">Settle up („Abrechnung“)</h2>
+  <ol class="steps">
+    <li>Open <span class="ui">„Abrechnung“</span>, choose <span class="ui">„Monat“</span> or <span class="ui">„Jahr“</span> and use the arrows to pick the period.</li>
+    <li>Read the totals and the section <span class="ui">„Je Auto“</span>: costs, km, euro per km and consumption per car.</li>
+    <li>Under <span class="ui">„Pro Person“</span> each person shows <span class="ui">„Gefahren“</span> (km), <span class="ui">„Bezahlt“</span> (what they paid) and <span class="ui">„Anteil“</span> (what they should pay). Tap a person for their detailed statement, line by line; <span class="ui">„Zurück zur Abrechnung“</span> returns.</li>
+    <li>Under <span class="ui">„Ausgleich“</span> the app suggests transfers, e.g. „Anna zahlt an Ben 42,10 €“. Transfer the money (bank, PayPal, cash).</li>
+    <li>Then tap <span class="ui">„Als bezahlt markieren“</span>. The transfer moves to <span class="ui">„Erledigte Zahlungen“</span>. Marked by mistake? Tap <span class="ui">„rückgängig“</span> next to it to mark it as open again.</li>
+  </ol>
+  <p>When everything is settled the app says <em>„Alles ausgeglichen – niemand schuldet jemandem etwas.“</em></p>
+  <p class="note">A yellow hint like „Golf: 120 km ohne eingetragene Fahrt“ means the odometer readings have a gap: someone forgot to record a trip. These km are paid by everyone via the km share until the missing trip is entered.</p>
+  <p>Under <span class="ui">„Auswertung“</span> three charts show who drove how much with which car, who carried how much of the costs, and who had which car when.</p>
+
+  <h2 id="export">Export: CSV and PDF</h2>
+  <ul>
+    <li><span class="ui">„CSV“</span> (top right in <span class="ui">„Abrechnung“</span>) downloads the settlement of the selected period as a file for Excel or Numbers.</li>
+    <li><span class="ui">„Drucken / PDF“</span> prints the page or saves it as PDF. On iPhone/iPad the app creates the PDF itself (<em>„PDF wird erstellt …“</em>) and then offers <span class="ui">„Teilen / Drucken“</span> to save it to Files, send it or print it.</li>
+  </ul>
+
+  <h2 id="more">Settings, cars and your profile („Mehr“)</h2>
+  <ul>
+    <li><strong><span class="ui">„Kostenverteilung“</span></strong> — the split rule for the whole family. Discuss before changing it; it changes all settlements, including past ones.
+      <ul>
+        <li><em>Fixkosten gleich, Verbrauch nach km</em> — insurance and tax equally, everything else by km (default).</li>
+        <li><em>Alles nach gefahrenen Kilometern</em> — everything by km.</li>
+        <li><em>Alles zu gleichen Teilen</em> — everything equally.</li>
+      </ul>
+    </li>
+    <li><strong><span class="ui">„Autos“</span></strong> — <span class="ui">„Auto hinzufügen“</span> with name, <span class="ui">„Kennzeichen“</span>, <span class="ui">„Antrieb“</span> and <span class="ui">„km-Stand jetzt“</span>. Tap a car to edit it. When a car is sold, untick <span class="ui">„Auto ist aktiv“</span>: it can no longer be reserved or driven, but late costs can still be entered.</li>
+    <li><strong><span class="ui">„Familie“</span></strong> — all members and their colours.</li>
+    <li><strong><span class="ui">„Mein Profil“</span></strong> — your name and colour.</li>
+    <li><strong><span class="ui">„Abmelden“</span></strong> — sign out (e.g. on a shared computer).</li>
+    <li>The app version is shown at the very bottom.</li>
+  </ul>
+
+  <h2 id="routine">Recommended routine</h2>
+  <ol>
+    <li>Before driving: reserve the car in <span class="ui">„Kalender“</span>.</li>
+    <li>After driving: record the trip in <span class="ui">„Fahrten“</span>.</li>
+    <li>After refuelling/charging or paying a bill: enter it in <span class="ui">„Kosten“</span> (keep the receipt).</li>
+    <li>At the start of each month: open last month in <span class="ui">„Abrechnung“</span>, check for km gaps, transfer the suggested amounts and mark them as paid. Optionally save the PDF.</li>
+  </ol>
+
+  <h2 id="faq">Questions and problems</h2>
+  <dl>
+    <dt><strong>Can I change entries made by someone else?</strong></dt>
+    <dd>Yes. Every family member may correct or delete every reservation, trip and cost. The app shows who created and who last changed an entry — please let the others know.</dd>
+
+    <dt><strong>The reservation is refused.</strong></dt>
+    <dd>The car is already reserved during part of that time, or the end is before the start („Das Ende muss nach dem Beginn liegen.“), or the car has been deactivated.</dd>
+
+    <dt><strong>The trip is refused.</strong></dt>
+    <dd>Its kilometres overlap an existing trip of the same car (the km would be counted twice), the end reading is smaller than the start, or no person is selected. Check the readings in the trip list.</dd>
+
+    <dt><strong>A car is missing in the selection.</strong></dt>
+    <dd>It is deactivated („Kein aktives Auto.“). Re-activate it under <span class="ui">„Mehr → Autos“</span> if that was a mistake.</dd>
+
+    <dt><strong>I forgot my password.</strong></dt>
+    <dd>Ask whoever manages the app; they can send a recovery e-mail or set a new password (see <a href="database-setup.html#admin">Database setup</a>).</dd>
+
+    <dt><strong>Can I use the app without internet?</strong></dt>
+    <dd>You can look at data already loaded, but new entries need a connection.</dd>
+
+    <dt><strong>The app shows „Einrichtung nötig“.</strong></dt>
+    <dd>The installation is missing its database connection — a task for the administrator (see <a href="installation.html#env">Installation</a>).</dd>
+
+    <dt><strong>Printing does nothing on the iPhone.</strong></dt>
+    <dd>Make sure you have the current version (shown at the bottom of <span class="ui">„Mehr“</span>, 1.5.2 or later). Close and reopen the app to load updates.</dd>
+  </dl>
+</main>
+
+<footer class="site">Familien-Carsharing · documentation for version 1.5.3</footer>
+</body>
+</html>

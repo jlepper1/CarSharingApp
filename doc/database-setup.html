@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Database Setup · Familien-Carsharing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">🚗 Familien-Carsharing · Documentation</a>
+  <nav class="top">
+    <a href="index.html">Overview</a>
+    <a href="features.html">Features</a>
+    <a href="user-guide.html">User guide</a>
+    <a href="installation.html">Installation</a>
+    <a href="database-setup.html" aria-current="page">Database setup</a>
+    <a href="architecture.html">Architecture</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Database setup – manual first start</h1>
+  <p class="lead">
+    Step by step: create a new, empty database, create the schema, create the user accounts with
+    passwords, and prepare the app for its first use. Takes about 15–20 minutes and is done once
+    by an administrator.
+  </p>
+
+  <div class="toc">
+    <ul>
+      <li><a href="#project">Step 1 – Create the Supabase project</a></li>
+      <li><a href="#schema">Step 2 – Create the schema (migrations)</a></li>
+      <li><a href="#verify">Step 3 – Check the schema</a></li>
+      <li><a href="#signup">Step 4 – Switch off self-registration</a></li>
+      <li><a href="#users">Step 5 – Create user accounts and passwords</a></li>
+      <li><a href="#profiles">Step 6 – Names and colours</a></li>
+      <li><a href="#keys">Step 7 – Copy URL and key</a></li>
+      <li><a href="#first">Step 8 – First login, cars and split rule</a></li>
+      <li><a href="#admin">Later administration (passwords, new and leaving members)</a></li>
+      <li><a href="#backup">Backup</a></li>
+    </ul>
+  </div>
+
+  <h2 id="project">Step 1 – Create the Supabase project</h2>
+  <ol class="steps">
+    <li>Register for free at <a href="https://supabase.com">supabase.com</a> and sign in.</li>
+    <li><span class="ui">New project</span>: choose a name (e.g. <code>carsharing</code>), a strong <strong>database password</strong> (store it safely — it is the PostgreSQL superuser password, not a family login), and the region <strong>Frankfurt (eu-central-1)</strong>, the closest one for Germany.</li>
+    <li>Wait until the project is ready (about two minutes).</li>
+  </ol>
+
+  <h2 id="schema">Step 2 – Create the schema (migrations)</h2>
+  <p>The scripts are in the folder <code>supabase/migrations/</code> of the source code. Run them <strong>one after another, in this order</strong>:</p>
+  <ol class="steps">
+    <li>In the Supabase dashboard open <span class="ui">SQL Editor</span> → <span class="ui">New query</span>.</li>
+    <li>Open <code>0001_init.sql</code> in a text editor, copy the entire content, paste it into the SQL Editor and click <span class="ui">Run</span>. The result must say <em>Success</em>.</li>
+    <li>Repeat with a new query for each further script:
+      <code>0002_booking_reference.sql</code>, <code>0003_shared_trips.sql</code>,
+      <code>0004_settlement_payments.sql</code>, <code>0005_profile_update_columns.sql</code>,
+      <code>0006_car_drive_type.sql</code>, <code>0007_harden_cars_and_quantities.sql</code>,
+      <code>0008_profile_colors.sql</code>.</li>
+  </ol>
+  <div class="note">
+    <strong>Notes</strong>
+    <ul>
+      <li>Never skip a script and never change the order; each one builds on the previous ones.</li>
+      <li><code>0007</code> and <code>0008</code> end with a check query; every row should show <code>ok</code>.</li>
+      <li>If a script fails, read the error message, fix the cause and run the same script again before continuing.</li>
+      <li>When updating an existing installation later, run only the scripts that are new.</li>
+    </ul>
+  </div>
+
+  <h2 id="verify">Step 3 – Check the schema</h2>
+  <p>Run in the SQL Editor:</p>
+  <pre><code>select table_name
+from information_schema.tables
+where table_schema = 'public'
+order by table_name;</code></pre>
+  <p>Expected: <code>bookings</code>, <code>cars</code>, <code>expenses</code>, <code>profiles</code>, <code>settings</code>, <code>settlement_payments</code>, <code>trips</code>.</p>
+  <pre><code>-- exactly one settings row with the default rule
+select * from public.settings;
+
+-- the trigger that creates profiles for new accounts
+select tgname from pg_trigger where tgname = 'on_auth_user_created';</code></pre>
+
+  <h2 id="signup">Step 4 – Switch off self-registration</h2>
+  <p>
+    <span class="ui">Authentication → Sign In / Providers → Email</span>: switch off
+    <em>Allow new users to sign up</em> and save. Otherwise strangers who know the address could create an
+    account themselves. (The <em>Email</em> provider itself stays enabled — it is used for logging in.)
+  </p>
+  <p class="warn">Do this <strong>before</strong> the app is published. Every new account automatically becomes an active family member with full access.</p>
+
+  <h2 id="users">Step 5 – Create user accounts and passwords</h2>
+  <p>Each family member needs their own account. For every person:</p>
+  <ol class="steps">
+    <li>Open <span class="ui">Authentication → Users</span> → <span class="ui">Add user</span> → <span class="ui">Create new user</span>.</li>
+    <li>Enter the person's <strong>e-mail address</strong> (it is the login name) and a <strong>password</strong>.</li>
+    <li>Tick <strong>Auto Confirm User</strong>, so no confirmation e-mail is needed.</li>
+    <li>Click <span class="ui">Create user</span>.</li>
+  </ol>
+  <p>The trigger <code>handle_new_user</code> immediately creates a matching row in <code>public.profiles</code>: display name = the part of the e-mail address before the <code>@</code>, colour = blue, active = yes.</p>
+  <div class="note">
+    <strong>Passwords</strong>
+    <ul>
+      <li>Use an individual password per person, at least 8 characters (Supabase's minimum is 6; a stricter minimum can be set under <span class="ui">Authentication → Providers → Email</span> / password settings).</li>
+      <li>Give each person their password personally (not in a family group chat). The app has no "change password" function; see <a href="#admin">Change or reset a password</a>.</li>
+      <li>A password manager or the phone's keychain can store the login; the login form supports autofill.</li>
+    </ul>
+  </div>
+  <p>Check that every account has a profile:</p>
+  <pre><code>select u.email, p.display_name, p.color, p.active
+from auth.users u
+left join public.profiles p on p.id = u.id
+order by u.created_at;</code></pre>
+
+  <h2 id="profiles">Step 6 – Names and colours</h2>
+  <p>Each person can set their display name and calendar colour themselves in the app under <span class="ui">„Mehr → Mein Profil“</span>. As administrator you can also set them in advance, so the family sees proper names and different colours from the start:</p>
+  <pre><code>update public.profiles set display_name = 'Anna',  color = '#2a78d6'
+where id = (select id from auth.users where email = 'anna@example.com');
+
+update public.profiles set display_name = 'Ben',   color = '#d95926'
+where id = (select id from auth.users where email = 'ben@example.com');</code></pre>
+  <p>Available colours (all distinguishable with colour blindness):</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Colour</th><th>Code</th></tr>
+      <tr><td><span style="color:#2a78d6">■</span> Blau</td><td><code>#2a78d6</code></td></tr>
+      <tr><td><span style="color:#d95926">■</span> Orange</td><td><code>#d95926</code></td></tr>
+      <tr><td><span style="color:#199e70">■</span> Türkis</td><td><code>#199e70</code></td></tr>
+      <tr><td><span style="color:#eda100">■</span> Gelb</td><td><code>#eda100</code></td></tr>
+      <tr><td><span style="color:#e87ba4">■</span> Rosa</td><td><code>#e87ba4</code></td></tr>
+      <tr><td><span style="color:#4a3aa7">■</span> Violett</td><td><code>#4a3aa7</code></td></tr>
+    </table>
+  </div>
+
+  <h2 id="keys">Step 7 – Copy URL and key</h2>
+  <p>
+    Under <span class="ui">Project Settings → API</span> (in newer dashboards also <span class="ui">Project Settings → Data API / API Keys</span>)
+    copy the <strong>Project URL</strong> and the <strong>anon public</strong> key. They go into <code>.env.local</code>
+    and into the GitHub secrets — see <a href="installation.html#env">Installation, step 4</a>.
+  </p>
+  <p class="warn">Never use the <strong>service_role</strong> (secret) key in the app or in GitHub secrets for the app. It bypasses all security rules.</p>
+
+  <h2 id="first">Step 8 – First login, cars and split rule</h2>
+  <ol class="steps">
+    <li>Open the app (locally with <code>npm run dev</code> or the published address) and sign in with one of the accounts.</li>
+    <li><span class="ui">„Mehr“</span> → section <span class="ui">„Autos“</span> → <span class="ui">„Auto hinzufügen“</span>: enter each car with name, licence plate, drive type and the <strong>current odometer reading</strong> (<span class="ui">„km-Stand jetzt“</span>). All kilometres are counted from this reading.</li>
+    <li>Under <span class="ui">„Kostenverteilung“</span> choose how costs are shared (default: <em>Fixkosten gleich, Verbrauch nach km</em>).</li>
+    <li>Optional: enter the current yearly bills (insurance, tax) under <span class="ui">„Kosten“</span> with <span class="ui">„Über einen Zeitraum verteilen“</span>.</li>
+    <li>Tell the family the address and their login; they continue with the <a href="user-guide.html">user guide</a>.</li>
+  </ol>
+
+  <h2 id="admin">Later administration</h2>
+
+  <h3>Add a new family member</h3>
+  <p>Exactly as in <a href="#users">Step 5</a>. Self-registration stays switched off.</p>
+
+  <h3>Change or reset a password</h3>
+  <p><strong>Option A – recovery e-mail:</strong> <span class="ui">Authentication → Users</span>, open the user's menu (⋯) → <span class="ui">Send password recovery</span>. The person receives an e-mail with a link. For the link to lead back to the app, set the app address under <span class="ui">Authentication → URL Configuration → Site URL</span> (e.g. <code>https://&lt;user&gt;.github.io/CarSharingApp/</code>).</p>
+  <p><strong>Option B – set a new password directly</strong> (administrator, in the SQL Editor):</p>
+  <pre><code>update auth.users
+set encrypted_password = extensions.crypt('New-Secret-Password', extensions.gen_salt('bf')),
+    updated_at = now()
+where email = 'anna@example.com';</code></pre>
+  <p class="note">Option B writes into Supabase's internal auth table. It works with the standard Supabase setup (bcrypt hashes, <code>pgcrypto</code> in schema <code>extensions</code>); prefer option A when e-mail works. Tell the person the new password personally.</p>
+
+  <h3>A member leaves – deactivate instead of delete</h3>
+  <p>Deactivating keeps all their trips, costs and payments in past settlements, but they can no longer read or change anything. Members cannot re-activate themselves.</p>
+  <pre><code>update public.profiles set active = false
+where id = (select id from auth.users where email = 'ben@example.com');</code></pre>
+  <p>Re-activate with <code>active = true</code>. Optionally also block the login under <span class="ui">Authentication → Users</span> (ban user) or change the password.</p>
+  <p class="warn">Deleting a user in <span class="ui">Authentication → Users</span> also deletes their profile and, with it, their reservations, the costs they paid and their settlement payments. Past settlements would change. Deactivate instead.</p>
+
+  <h3>Change the login e-mail</h3>
+  <p><span class="ui">Authentication → Users</span> → open the user → change the e-mail address. The profile stays linked.</p>
+
+  <h2 id="backup">Backup</h2>
+  <ul>
+    <li>Supabase makes daily backups on paid plans; on the free plan export regularly yourself, e.g. <span class="ui">Table Editor</span> → table → <span class="ui">Export to CSV</span> for each table, or with <code>pg_dump</code> using the connection string from <span class="ui">Project Settings → Database</span>.</li>
+    <li>The CSV export of the settlement in the app is a convenient monthly record for the family.</li>
+    <li>Free Supabase projects are paused after a longer period without any use; they can be resumed in the dashboard.</li>
+  </ul>
+</main>
+
+<footer class="site">Familien-Carsharing · documentation for version 1.5.3</footer>
+</body>
+</html>

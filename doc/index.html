@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Familien-Carsharing Documentation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">🚗 Familien-Carsharing · Documentation</a>
+  <nav class="top">
+    <a href="index.html" aria-current="page">Overview</a>
+    <a href="features.html">Features</a>
+    <a href="user-guide.html">User guide</a>
+    <a href="installation.html">Installation</a>
+    <a href="database-setup.html">Database setup</a>
+    <a href="architecture.html">Architecture</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Familien-Carsharing</h1>
+  <p class="lead">
+    A web app for a family that shares cars: reserve a car, record the kilometres
+    driven, enter the costs and settle up fairly. It runs on iPhone and Android as
+    an app on the home screen (PWA), without an app store.
+  </p>
+
+  <p>
+    This documentation describes version <strong>1.5.3</strong>. The app itself is in
+    German; this documentation is in English, and every button or screen name is
+    quoted exactly as it appears in the app, for example <span class="ui">„Mehr → Autos“</span>.
+  </p>
+
+  <h2>Contents</h2>
+  <div class="cards">
+    <a class="card" href="features.html">
+      <strong>Features</strong>
+      <span>What the app can do: calendar, trips, costs, settlement, export, sharing rules.</span>
+    </a>
+    <a class="card" href="user-guide.html">
+      <strong>User guide</strong>
+      <span>Step-by-step instructions for family members using the app every day.</span>
+    </a>
+    <a class="card" href="installation.html">
+      <strong>Installation</strong>
+      <span>Set the app up on a new computer, build it and publish it on GitHub Pages.</span>
+    </a>
+    <a class="card" href="database-setup.html">
+      <strong>Database setup</strong>
+      <span>Manual first start of a new database: schema, user accounts, passwords, cars.</span>
+    </a>
+    <a class="card" href="architecture.html">
+      <strong>Architecture</strong>
+      <span>Programming language, servers, hosting, and how the app uses the database.</span>
+    </a>
+  </div>
+
+  <h2>At a glance</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Users</th><td>A family (designed for about five people) sharing one or more cars</td></tr>
+      <tr><th>Client</th><td>Single-page web app / Progressive Web App, German user interface</td></tr>
+      <tr><th>Language</th><td>TypeScript (React 19), styled with Tailwind CSS, built with Vite</td></tr>
+      <tr><th>Hosting</th><td>Static files on GitHub Pages, deployed automatically on every push to <code>main</code></td></tr>
+      <tr><th>Backend</th><td>Supabase: PostgreSQL database, authentication, REST API, realtime, file storage</td></tr>
+      <tr><th>Accounts</th><td>Created by hand in the Supabase dashboard; no self-registration</td></tr>
+    </table>
+  </div>
+
+  <h2>Typical first-time path</h2>
+  <ol class="steps">
+    <li><a href="database-setup.html">Create the database and the user accounts</a> (administrator, once).</li>
+    <li><a href="installation.html">Install, build and publish the app</a> (administrator, once).</li>
+    <li>Every family member installs the app on their phone and signs in — see the <a href="user-guide.html">user guide</a>.</li>
+  </ol>
+</main>
+
+<footer class="site">Familien-Carsharing · documentation for version 1.5.3</footer>
+</body>
+</html>

@@ -4,6 +4,9 @@ Eine Web-App für die Familie: zwei Autos reservieren, Kilometer erfassen, Koste
 eintragen und fair abrechnen. Läuft auf iPhone und Android als App auf dem
 Startbildschirm (PWA), ohne App Store.
 
+Ausführliche Dokumentation (Englisch): [`doc/index.html`](doc/index.html) – Funktionen,
+Benutzerhandbuch, Installation, Datenbank-Einrichtung und Architektur.
+
 ## Was die App kann
 
 - **Kalender** – wer hat wann welches Auto reserviert. Doppelbuchungen werden von

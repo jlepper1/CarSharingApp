@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Installation · Familien-Carsharing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">🚗 Familien-Carsharing · Documentation</a>
+  <nav class="top">
+    <a href="index.html">Overview</a>
+    <a href="features.html">Features</a>
+    <a href="user-guide.html">User guide</a>
+    <a href="installation.html" aria-current="page">Installation</a>
+    <a href="database-setup.html">Database setup</a>
+    <a href="architecture.html">Architecture</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Installation on a new environment</h1>
+  <p class="lead">How to set up the source code on a new computer, run it locally, and publish it so the family can use it.</p>
+
+  <div class="toc">
+    <ul>
+      <li><a href="#prereq">1. Prerequisites</a></li>
+      <li><a href="#db">2. Database</a></li>
+      <li><a href="#code">3. Get the code and install dependencies</a></li>
+      <li><a href="#env">4. Configure the connection</a></li>
+      <li><a href="#run">5. Run, test and build locally</a></li>
+      <li><a href="#deploy">6. Publish on GitHub Pages</a></li>
+      <li><a href="#other">7. Other web servers</a></li>
+      <li><a href="#phone">8. Install the app on phones</a></li>
+      <li><a href="#update">9. Updating to a new version</a></li>
+    </ul>
+  </div>
+
+  <h2 id="prereq">1. Prerequisites</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>What</th><th>Version / note</th></tr>
+      <tr><td><a href="https://nodejs.org">Node.js</a> with npm</td><td>Version 22 (the same as the build pipeline). Check with <code>node -v</code>.</td></tr>
+      <tr><td><a href="https://git-scm.com">Git</a></td><td>Any current version</td></tr>
+      <tr><td>Supabase account</td><td>Free at <a href="https://supabase.com">supabase.com</a> — hosts the database and logins</td></tr>
+      <tr><td>GitHub account</td><td>Hosts the source code and the published app (GitHub Pages)</td></tr>
+      <tr><td>Editor (optional)</td><td>Visual Studio Code; the repository contains <code>CarSharingApp.code-workspace</code></td></tr>
+    </table>
+  </div>
+
+  <h2 id="db">2. Database</h2>
+  <p>A Supabase project with the schema and user accounts must exist first. Follow <a href="database-setup.html">Database setup</a>, then continue here with the <em>Project URL</em> and the <em>anon public</em> key.</p>
+
+  <h2 id="code">3. Get the code and install dependencies</h2>
+  <pre><code>git clone https://github.com/&lt;user&gt;/CarSharingApp.git
+cd CarSharingApp
+npm install</code></pre>
+  <p><code>npm install</code> downloads all libraries listed in <code>package.json</code> into <code>node_modules/</code>. For an exact, reproducible install (as in the pipeline) use <code>npm ci</code>.</p>
+
+  <h2 id="env">4. Configure the connection</h2>
+  <p>Copy <code>.env.example</code> to <code>.env.local</code> in the project folder and fill in the values from the Supabase dashboard (<span class="ui">Project Settings → API</span>):</p>
+  <pre><code>VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
+VITE_DATA_PROVIDER=supabase</code></pre>
+  <ul>
+    <li><code>.env.local</code> is ignored by Git and is not committed.</li>
+    <li>The anon key is public by design; the data is protected by the database's row level security.</li>
+    <li><strong>Never</strong> use the <em>service_role</em> key here — it bypasses all security rules.</li>
+    <li>If the values are missing, the app shows the screen <span class="ui">„Einrichtung nötig“</span> instead of the login.</li>
+  </ul>
+
+  <h2 id="run">5. Run, test and build locally</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Command</th><th>What it does</th></tr>
+      <tr><td><code>npm run dev</code></td><td>Starts the Vite development server on <code>http://localhost:5173</code>. It is also reachable in the home network (e.g. <code>http://192.168.x.x:5173</code>, printed in the console), so it can be opened on a phone.</td></tr>
+      <tr><td><code>npm test</code></td><td>Runs all unit and screen tests once (<code>npm run test:watch</code> keeps watching).</td></tr>
+      <tr><td><code>npm run lint</code></td><td>Static code checks with oxlint.</td></tr>
+      <tr><td><code>npm run build</code></td><td>Type check and production build into <code>dist/</code>.</td></tr>
+      <tr><td><code>npm run preview</code></td><td>Serves the built <code>dist/</code> folder locally to try the production build.</td></tr>
+    </table>
+  </div>
+
+  <h2 id="deploy">6. Publish on GitHub Pages</h2>
+  <p>The workflow <code>.github/workflows/deploy.yml</code> runs on every push to <code>main</code> (or manually via <em>Run workflow</em>): <code>npm ci</code> → <code>npm test</code> → <code>npm run build</code> → publish <code>dist/</code> to GitHub Pages. One-time setup in the GitHub repository:</p>
+  <ol class="steps">
+    <li>Push the code to a GitHub repository named <code>CarSharingApp</code>.</li>
+    <li><span class="ui">Settings → Pages → Source</span>: select <strong>GitHub Actions</strong>.</li>
+    <li><span class="ui">Settings → Secrets and variables → Actions → New repository secret</span>: create
+      <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> with the same values as in <code>.env.local</code>.</li>
+    <li>Push to <code>main</code> (or start the workflow manually under <span class="ui">Actions</span>).</li>
+    <li>After a minute or two the app is available at <code>https://&lt;user&gt;.github.io/CarSharingApp/</code>.</li>
+  </ol>
+  <p class="note">The workflow builds with <code>VITE_BASE=/CarSharingApp/</code> because GitHub Pages serves the app from that sub-path. If the repository has a different name, change <code>VITE_BASE</code> in the workflow accordingly.</p>
+
+  <h2 id="other">7. Other web servers</h2>
+  <p>The built app is just static files. To host it elsewhere:</p>
+  <pre><code># build for a server where the app lives at the root path "/"
+npm run build
+# or for a sub-path, e.g. https://example.com/carsharing/
+VITE_BASE=/carsharing/ npm run build</code></pre>
+  <p>Copy the content of <code>dist/</code> to the web server. Use HTTPS — it is required for the service worker and for installing the app on phones. The <code>VITE_SUPABASE_*</code> variables must be set (via <code>.env.local</code> or the environment) at <em>build</em> time; they are compiled into the JavaScript.</p>
+
+  <h2 id="phone">8. Install the app on phones</h2>
+  <ul>
+    <li><strong>iPhone / iPad:</strong> open the address in <strong>Safari</strong> (not Chrome), tap <em>Teilen</em> (share) → <em>Zum Home-Bildschirm</em>.</li>
+    <li><strong>Android:</strong> open the address in Chrome, menu ⋮ → <em>App installieren</em>.</li>
+    <li><strong>Desktop:</strong> works in any current browser; Chrome and Edge also offer to install it as an app.</li>
+  </ul>
+  <p>The installed app updates itself automatically when a new version is published.</p>
+
+  <h2 id="update">9. Updating to a new version</h2>
+  <ol class="steps">
+    <li>If the new version contains new files in <code>supabase/migrations/</code>, run <strong>only the new ones</strong>, in order, in the Supabase SQL Editor — <em>before</em> pushing, because a push deploys immediately.</li>
+    <li><code>git pull</code>, <code>npm install</code>, <code>npm test</code>.</li>
+    <li>Push to <code>main</code>; GitHub Actions builds and publishes.</li>
+    <li>Releases are marked with a commit „Release version X.Y.Z“ (version in <code>package.json</code>) and a Git tag <code>vX.Y.Z</code>. The running version is shown at the bottom of the <span class="ui">„Mehr“</span> screen.</li>
+  </ol>
+</main>
+
+<footer class="site">Familien-Carsharing · documentation for version 1.5.3</footer>
+</body>
+</html>

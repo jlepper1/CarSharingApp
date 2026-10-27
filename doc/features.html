@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Features · Familien-Carsharing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">🚗 Familien-Carsharing · Documentation</a>
+  <nav class="top">
+    <a href="index.html">Overview</a>
+    <a href="features.html" aria-current="page">Features</a>
+    <a href="user-guide.html">User guide</a>
+    <a href="installation.html">Installation</a>
+    <a href="database-setup.html">Database setup</a>
+    <a href="architecture.html">Architecture</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Features</h1>
+  <p class="lead">What the app does, screen by screen. For step-by-step instructions see the <a href="user-guide.html">user guide</a>.</p>
+
+  <div class="toc">
+    <ul>
+      <li><a href="#calendar">Calendar – reservations</a></li>
+      <li><a href="#trips">Trips – kilometres</a></li>
+      <li><a href="#costs">Costs</a></li>
+      <li><a href="#settlement">Settlement</a></li>
+      <li><a href="#rules">Cost-sharing rules</a></li>
+      <li><a href="#cars">Cars and profiles</a></li>
+      <li><a href="#collab">Working together</a></li>
+      <li><a href="#pwa">App on the phone, offline use</a></li>
+    </ul>
+  </div>
+
+  <h2 id="calendar">Calendar – reservations („Kalender“)</h2>
+  <ul>
+    <li>Shows who has reserved which car and when, as a month grid (<span class="ui">„Monat“</span>) or as a list (<span class="ui">„Liste“</span>) with <span class="ui">„Kommende“</span> and <span class="ui">„Vergangene“</span> reservations.</li>
+    <li>Filter by car (<span class="ui">„Alle Autos“</span> or a single car). Each person has a colour, so the calendar can be read at a glance.</li>
+    <li>A reservation has a car, start (<span class="ui">„Von“</span>), end (<span class="ui">„Bis“</span>) and an optional purpose (<span class="ui">„Zweck“</span>).</li>
+    <li><strong>No double bookings:</strong> two reservations of the same car can never overlap. This is enforced by the database itself, so it also holds when two phones save at the same moment.</li>
+    <li>Every reservation gets a permanent running number (<em>Reservierung Nummer 12</em>) so the family can refer to it. The number stays even when other reservations are deleted.</li>
+    <li>Inactive (sold) cars cannot be reserved.</li>
+  </ul>
+
+  <h2 id="trips">Trips – kilometres („Fahrten“)</h2>
+  <ul>
+    <li>A trip records the car, the date, the odometer reading at the start (<span class="ui">„km-Stand Start“</span>) and at the end (<span class="ui">„km-Stand Ende“</span>), and an optional note. The distance is calculated, never typed in.</li>
+    <li>The start reading is pre-filled from the last recorded reading of that car. A forgotten trip therefore shows up as a <em>gap</em> instead of disappearing; the settlement warns about kilometres without a recorded trip.</li>
+    <li><strong>Shared trips:</strong> a trip can belong to several people (<span class="ui">„Wer ist gefahren?“</span>). All of them have equal rights and the kilometres are split equally between them. A person can remove only themselves from a trip (<span class="ui">„Mich austragen“</span>); when the last person leaves, the trip is deleted.</li>
+    <li><strong>No double-counted kilometres:</strong> the database rejects two trips of the same car whose odometer ranges overlap.</li>
+    <li>A monthly total (<span class="ui">„Kilometer im Monat“</span>) is shown per person.</li>
+  </ul>
+
+  <h2 id="costs">Costs („Kosten“)</h2>
+  <ul>
+    <li>Categories: <span class="ui">Tanken</span> (fuel), <span class="ui">Laden (Strom)</span> (charging an electric car), <span class="ui">KFZ-Versicherung</span> (insurance), <span class="ui">KFZ-Steuer</span> (vehicle tax), <span class="ui">Reparatur</span>, <span class="ui">Wartung</span> (service), <span class="ui">Reifen</span> (tyres), <span class="ui">Sonstiges</span> (other).</li>
+    <li>Each cost records who paid (<span class="ui">„Bezahlt von“</span>), the amount, the date, optionally a car (or <span class="ui">„Kein bestimmtes Auto“</span>) and a note.</li>
+    <li>Fuel records the litres, charging the kWh, so the settlement can show consumption (l/100 km or kWh/100 km).</li>
+    <li><strong>Yearly bills:</strong> with <span class="ui">„Über einen Zeitraum verteilen“</span> a bill such as insurance or tax is spread day by day across its period (e.g. 1 Jan – 31 Dec), instead of landing completely in one month.</li>
+    <li>Money is always stored in whole cents, never as a floating-point number.</li>
+  </ul>
+
+  <h2 id="settlement">Settlement („Abrechnung“)</h2>
+  <ul>
+    <li>Per month (<span class="ui">„Monat“</span>) or per year (<span class="ui">„Jahr“</span>).</li>
+    <li><strong>Totals:</strong> <span class="ui">„Kosten gesamt“</span> and <span class="ui">„Kilometer gesamt“</span>.</li>
+    <li><strong>Per car (<span class="ui">„Je Auto“</span>):</strong> costs, kilometres, cost per km, and fuel or electricity consumption per 100 km.</li>
+    <li><strong>Per person (<span class="ui">„Pro Person“</span>):</strong> kilometres driven (<span class="ui">„Gefahren“</span>), amount paid (<span class="ui">„Bezahlt“</span>) and own share (<span class="ui">„Anteil“</span>), plus the resulting balance.</li>
+    <li><strong>Settling up (<span class="ui">„Ausgleich“</span>):</strong> the app proposes who transfers how much to whom, with as few transfers as possible. After transferring, a transfer is marked <span class="ui">„Als bezahlt markieren“</span>; it then appears under <span class="ui">„Erledigte Zahlungen“</span> and can be undone (<span class="ui">„rückgängig“</span>). A payment counts on the last day of the settled period, so an open amount is not lost when the month changes.</li>
+    <li><strong>Personal statement:</strong> tapping a person opens a line-by-line breakdown of their share — fixed costs split equally, usage costs split by km — with the reconciliation (<span class="ui">„Abstimmung“</span>) of share, paid and balance.</li>
+    <li><strong>Charts (<span class="ui">„Auswertung“</span>):</strong> „Wer ist wie viel gefahren – mit welchem Auto?“, „Wer trug wie viel Kosten?“ and „Wer hatte wann welches Auto?“.</li>
+    <li><strong>Export:</strong> <span class="ui">„CSV“</span> for Excel (cells are protected against spreadsheet formula injection) and <span class="ui">„Drucken / PDF“</span>. On iPhone/iPad the page is rendered into a PDF and handed to the share sheet, because printing does not work in a home-screen app there.</li>
+    <li>Exact arithmetic: all shares are computed in whole cents; leftover cents are distributed by the largest-remainder method, so the shares always add up exactly to the total.</li>
+  </ul>
+
+  <h2 id="rules">Cost-sharing rules („Kostenverteilung“)</h2>
+  <p>Chosen under <span class="ui">„Mehr“</span> and valid for the whole family:</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Rule (as shown in the app)</th><th>Meaning</th></tr>
+      <tr><td>Fixkosten gleich, Verbrauch nach km <em>(default)</em></td><td>Insurance and tax are split equally between all members; fuel, electricity, repairs, service and tyres follow each person's share of the kilometres.</td></tr>
+      <tr><td>Alles nach gefahrenen Kilometern</td><td>All costs follow the share of kilometres. Whoever drives more pays more of everything.</td></tr>
+      <tr><td>Alles zu gleichen Teilen</td><td>All costs are split equally; kilometres are for information only.</td></tr>
+    </table>
+  </div>
+  <p class="note">Kilometre-based costs are split by each person's kilometres over <em>all</em> cars together, not per car.</p>
+
+  <h2 id="cars">Cars and profiles („Mehr“)</h2>
+  <ul>
+    <li><strong>Cars:</strong> name, licence plate (<span class="ui">„Kennzeichen“</span>), drive type (<span class="ui">„Verbrenner (Kraftstoff)“</span> or <span class="ui">„Elektro“</span>; hybrids count as fuel) and the odometer reading when the car was added.</li>
+    <li>Cars cannot be deleted, because that would change past settlements. A sold car is switched off (<span class="ui">„Auto ist aktiv“</span>): it can no longer be reserved or driven, but late costs can still be entered and history stays complete.</li>
+    <li><strong>Family (<span class="ui">„Familie“</span>):</strong> list of all members with their colours.</li>
+    <li><strong>My profile (<span class="ui">„Mein Profil“</span>):</strong> each person sets their own display name and calendar colour. The six colours are chosen so that colour-blind people can tell them apart.</li>
+    <li>The app version and build are shown at the bottom of the <span class="ui">„Mehr“</span> screen; <span class="ui">„Abmelden“</span> signs out.</li>
+  </ul>
+
+  <h2 id="collab">Working together</h2>
+  <ul>
+    <li><strong>Everyone may edit everything:</strong> every active family member may correct or delete every reservation, trip and cost entry. Instead of locks, the app shows who created an entry and who changed it last; the database records this itself.</li>
+    <li><strong>Live updates:</strong> changes made by others appear immediately, without reloading.</li>
+    <li><strong>Private by default:</strong> only signed-in, active family members can read any data. There is no self-registration; accounts are created by the administrator.</li>
+  </ul>
+
+  <h2 id="pwa">App on the phone, offline use</h2>
+  <ul>
+    <li>Installable on the home screen of iPhone (Safari → <em>Zum Home-Bildschirm</em>) and Android (Chrome → <em>App installieren</em>). It opens full screen like a native app and updates itself automatically.</li>
+    <li>Offline, data that was already loaded can be viewed, but new entries require a connection.</li>
+  </ul>
+</main>
+
+<footer class="site">Familien-Carsharing · documentation for version 1.5.3</footer>
+</body>
+</html>
