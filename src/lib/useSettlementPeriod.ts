@@ -58,3 +58,9 @@ export function periodLabel(period: Period, month: Date): string {
   if (period === 'year') return String(month.getFullYear())
   return new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(month)
 }
+
+/** "2026-07" or "2026", for file names. */
+export function periodStamp(period: Period, month: Date): string {
+  if (period === 'year') return String(month.getFullYear())
+  return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
+}

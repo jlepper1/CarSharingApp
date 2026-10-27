@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
-import { Button, Card, EmptyState, ErrorBanner, Screen, Spinner } from '../components/ui'
+import PrintButton from '../components/PrintButton'
+import { Card, EmptyState, ErrorBanner, Screen, Spinner } from '../components/ui'
 import { useApp, useProfileLookup } from '../context/AppContext'
 import { CATEGORY_LABELS } from '../data/types'
 import { formatDateISO } from '../lib/dates'
 import { formatCents, formatEuroPerKm, formatKm, formatPercent } from '../lib/format'
 import { carStats, personBreakdown, type BreakdownRow } from '../lib/settlement'
-import { periodLabel, useSettlementPeriod } from '../lib/useSettlementPeriod'
+import { periodLabel, periodStamp, useSettlementPeriod } from '../lib/useSettlementPeriod'
 import { useSettlementData } from '../lib/useSettlementData'
 
 /**
@@ -51,9 +52,10 @@ export default function PersonSettlementScreen() {
       back={{ to: `/abrechnung?${query}`, label: 'Zurück zur Abrechnung' }}
       action={
         person ? (
-          <Button variant="ghost" className="px-2 print:hidden" onClick={() => window.print()}>
-            Drucken / PDF
-          </Button>
+          <PrintButton
+            className="print:hidden"
+            filename={`kostenaufstellung-${fileSlug(person.displayName)}-${periodStamp(period, month)}.pdf`}
+          />
         ) : null
       }
     >
@@ -241,6 +243,19 @@ function Section({
       ))}
     </tbody>
   )
+}
+
+/** "Anna-Lena Müller" → "anna-lena-mueller", safe in a file name. */
+function fileSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return slug || 'person'
 }
 
 function Line({ label, children }: { label: string; children: React.ReactNode }) {

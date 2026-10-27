@@ -1,5 +1,18 @@
 @import 'tailwindcss';
 
+/*
+ * print: styles apply when printing and while the iOS PDF is captured
+ * (src/lib/pdfExport.ts), so both look the same.
+ */
+@custom-variant print {
+  @media print {
+    @slot;
+  }
+  &:where(.pdf-export, .pdf-export *) {
+    @slot;
+  }
+}
+
 @theme {
   --color-brand-50: #f0fdfa;
   --color-brand-100: #ccfbf1;

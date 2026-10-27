@@ -21,7 +21,8 @@ export function Screen({
   children: ReactNode
 }) {
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-6">
+    // data-print-root: what "Drucken / PDF" puts into the PDF on iOS.
+    <div data-print-root className="mx-auto w-full max-w-2xl px-4 pb-6">
       <header className="sticky top-0 z-10 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-100/90 px-4 py-3 backdrop-blur safe-top print:static">
         <div className="flex min-w-0 items-center gap-1">
           {back ? (

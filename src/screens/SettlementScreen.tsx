@@ -10,6 +10,7 @@ import {
   Spinner,
 } from '../components/ui'
 import MonthPicker from '../components/MonthPicker'
+import PrintButton from '../components/PrintButton'
 import CostShareChart from '../components/charts/CostShareChart'
 import KmByCarChart from '../components/charts/KmByCarChart'
 import UsageTimeline from '../components/charts/UsageTimeline'
@@ -26,7 +27,7 @@ import {
   formatPercent,
 } from '../lib/format'
 import { carStats, type Transfer } from '../lib/settlement'
-import { periodLabel, useSettlementPeriod } from '../lib/useSettlementPeriod'
+import { periodLabel, periodStamp, useSettlementPeriod } from '../lib/useSettlementPeriod'
 import { useSettlementData } from '../lib/useSettlementData'
 
 export default function SettlementScreen() {
@@ -71,11 +72,7 @@ export default function SettlementScreen() {
   function exportCsv() {
     if (!result) return
     const text = buildSettlementCsv({ result, trips, payments, profiles, cars, periodLabel: label })
-    const stamp =
-      period === 'year'
-        ? String(month.getFullYear())
-        : `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
-    downloadCsv(`abrechnung-${stamp}.csv`, text)
+    downloadCsv(`abrechnung-${periodStamp(period, month)}.csv`, text)
   }
 
   const empty =
@@ -90,9 +87,7 @@ export default function SettlementScreen() {
             <Button variant="ghost" className="px-2" onClick={exportCsv}>
               CSV
             </Button>
-            <Button variant="ghost" className="px-2" onClick={() => window.print()}>
-              Drucken / PDF
-            </Button>
+            <PrintButton filename={`abrechnung-${periodStamp(period, month)}.pdf`} />
           </div>
         )
       }
