@@ -25,7 +25,21 @@ import { formatKm } from '../lib/format'
 const RULES: SplitRule[] = ['fixed_equal_variable_km', 'all_by_km', 'all_equal']
 const DRIVE_TYPES: DriveType[] = ['fuel', 'electric']
 
-const COLORS = ['#0f766e', '#b45309', '#7c3aed', '#be123c', '#1d4ed8', '#15803d', '#a16207']
+/**
+ * Profile colours, checked with the dataviz palette validator against white
+ * with every pair compared (any two people can meet in the calendar): all six
+ * stay apart under red-green colour blindness. Yellow and pink are light on
+ * white, which is fine because a person's dot always sits next to the name.
+ * Migration 0008 moved existing profiles onto this list.
+ */
+const COLORS = [
+  { hex: '#2a78d6', name: 'Blau' },
+  { hex: '#d95926', name: 'Orange' },
+  { hex: '#199e70', name: 'Türkis' },
+  { hex: '#eda100', name: 'Gelb' },
+  { hex: '#e87ba4', name: 'Rosa' },
+  { hex: '#4a3aa7', name: 'Violett' },
+]
 
 export default function SettingsScreen() {
   const { provider, profiles, settings, me, user, reload, signOut } = useApp()
@@ -369,14 +383,14 @@ export function CarDialog({
 function ProfileSection() {
   const { provider, me, reload } = useApp()
   const [displayName, setDisplayName] = useState(me?.displayName ?? '')
-  const [color, setColor] = useState(me?.color ?? COLORS[0])
+  const [color, setColor] = useState(me?.color ?? COLORS[0].hex)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     setDisplayName(me?.displayName ?? '')
-    setColor(me?.color ?? COLORS[0])
+    setColor(me?.color ?? COLORS[0].hex)
   }, [me])
 
   async function handleSubmit(event: FormEvent) {
@@ -410,14 +424,15 @@ function ProfileSection() {
             <div className="flex flex-wrap gap-2">
               {COLORS.map((option) => (
                 <button
-                  key={option}
+                  key={option.hex}
                   type="button"
-                  onClick={() => setColor(option)}
-                  aria-label={`Farbe ${option}`}
+                  onClick={() => setColor(option.hex)}
+                  aria-label={`Farbe ${option.name}`}
+                  aria-pressed={color === option.hex}
                   className={`h-9 w-9 rounded-full border-2 transition-transform ${
-                    color === option ? 'scale-110 border-slate-900' : 'border-transparent'
+                    color === option.hex ? 'scale-110 border-slate-900' : 'border-transparent'
                   }`}
-                  style={{ backgroundColor: option }}
+                  style={{ backgroundColor: option.hex }}
                 />
               ))}
             </div>
